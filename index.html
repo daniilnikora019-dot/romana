@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Română — тренажёр румынского</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f7df3'/%3E%3Ctext x='32' y='46' font-size='36' text-anchor='middle' fill='white' font-family='system-ui'%3ERO%3C/text%3E%3C/svg%3E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Română">
+<meta name="theme-color" content="#1f6b63" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121413" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <main id="main"><div class="empty"><div class="ico">⏳</div><h3>Загружаю словарь…</h3></div></main>
+
+  <nav id="tabbar">
+    <button class="tab" data-go="home"><i>🎓</i><span>Учить</span><em class="dot-badge" id="b-due" hidden></em></button>
+    <button class="tab" data-go="dict"><i>📖</i><span>Словарь</span></button>
+    <button class="tab" data-go="menu"><i>⚙️</i><span>Меню</span></button>
+  </nav>
+</div>
+<script src="app.js"></script>
+<script>
+  // офлайн-режим работает на https и на localhost — по обычному http браузер его не разрешает
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+</script>
+</body>
+</html>
