@@ -140,7 +140,9 @@ function counts() {
 /* ---------------- озвучка ---------------- */
 function audioUrl(text) {
   const h = S.audio[text];
-  return h ? `audio/${S.prog.set.voice}/${h}.mp3` : null;
+  // у некоторых языков доступен всего один голос — выбора нет, папка всегда одна
+  const voice = L.voice.single ? 'f' : S.prog.set.voice;
+  return h ? `audio/${voice}/${h}.mp3` : null;
 }
 function speak(text) {
   const url = audioUrl(text);
@@ -2252,7 +2254,9 @@ function openSettings() {
 
     <div class="set-sect">Произношение</div>
     <div class="set-group">
-      ${row('Голос', L.voice.note, `<select id="s-voice">
+      ${row('Голос', L.voice.note, L.voice.single
+        ? `<b>${L.voice.f}</b>`
+        : `<select id="s-voice">
         <option value="f" ${st.voice === 'f' ? 'selected' : ''}>${L.voice.f}</option>
         <option value="m" ${st.voice === 'm' ? 'selected' : ''}>${L.voice.m}</option></select>`)}
       ${row('Произносить автоматически', 'Слово озвучивается при показе карточки',
@@ -2286,7 +2290,8 @@ function openSettings() {
 
   });
   $('#s-theme', bg).onchange = (e) => { localStorage.setItem(THEME_KEY, e.target.value); applyTheme(); };
-  $('#s-voice', bg).onchange = (e) => { st.voice = e.target.value; saveProgress(); speak(L.sample); };
+  const voiceSel = $('#s-voice', bg);
+  if (voiceSel) voiceSel.onchange = (e) => { st.voice = e.target.value; saveProgress(); speak(L.sample); };
   $('#s-rmode', bg).onchange = (e) => { st.reviewMode = e.target.value; saveProgress(); S.session = null; };
   $('#s-scope', bg).onchange = (e) => { st.reviewScope = e.target.value; saveProgress(); S.session = null; };
   $('#s-mreps', bg).onchange = (e) => { st.masterReps = +e.target.value; saveProgress(); S.session = null; };
