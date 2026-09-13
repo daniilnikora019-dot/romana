@@ -585,13 +585,14 @@ function bindSwipe(card, o) {
    При верном ответе кнопка называется «Я запомнил» — это осознанное
    подтверждение, а не просто перелистывание. При неверном есть только
    «Повторить ещё раз»: слово в любом случае вернётся в этой же сессии.
-   `graded` — для карточек, где человек уже сам себя оценил; там второе
-   подтверждение было бы лишним. */
-function afterAnswer(box, card, ok, w, done, graded) {
+   В карточке повторения этой панели нет: там человек сам выносит вердикт,
+   и строка оценки после него превращается в «Дальше →» — две строки об одном
+   и том же стояли друг под другом и только путали. */
+function afterAnswer(box, card, ok, w, done) {
   const panel = el(`<div class="after-answer ${ok ? 'ok' : 'no'}">
     ${ok
       ? `<button class="btn ghost" data-a="again">↺ Показать ещё раз</button>
-         <button class="btn success" data-a="next">${graded ? 'Дальше →' : '✓ Я запомнил'}</button>`
+         <button class="btn success" data-a="next">✓ Я запомнил</button>`
       : `<button class="btn primary block" data-a="again">↺ Повторить ещё раз</button>`}
   </div>`);
   const go = (again) => { panel.remove(); done(again); };
@@ -1404,10 +1405,16 @@ function exerciseReview(w, o) {
     releaseAudio(box);
     showMnemo();
     speak(w.ka);
-    $$('#grade button, #tools button', box).forEach(b => b.disabled = true);
+    $$('#tools button', box).forEach(b => b.disabled = true);
     const card = box.querySelector('.review-card');
     card.classList.add(ok ? 'said-yes' : 'said-no');
-    afterAnswer(box, card, ok, w, (again) => o.onDone(ok, again), true);
+    // Строка оценки и панель «дальше» означали одно и то же и стояли друг под
+    // другом. Оставлена одна строка, на своём месте: после вердикта она
+    // превращается в «Дальше →», а ответ к этому моменту уже открыт.
+    const grade = $('#grade', box);
+    grade.innerHTML = '<button data-g="next"><b>Дальше →</b><span>' +
+      (ok ? 'вспомнили' : 'вернётся ещё раз') + '</span></button>';
+    grade.querySelector('[data-g=next]').onclick = () => o.onDone(ok, false);
   };
 
   // глазок только открывает ответ; произнести — отдельная кнопка 🔊, она тут же появляется

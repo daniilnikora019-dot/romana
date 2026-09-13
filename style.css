@@ -611,3 +611,6 @@ button,.cat-card,.letter-card,.wcard,.cat-line,.menu-row,.wrow{-webkit-tap-highl
   border:1px solid var(--line);font-size:17px;line-height:1;
 }
 .opt-play:active{background:var(--surface-2)}
+
+/* после вердикта в строке оценки остаётся одна кнопка — она занимает всю ширину */
+.grade-row button:only-child{border-right:none}
