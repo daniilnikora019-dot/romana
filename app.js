@@ -650,6 +650,34 @@ function revealHTML(text, label = 'Показать перевод') {
     <div class="word-ru reveal-text" hidden>${esc(text)}</div>
   </div>`;
 }
+/* Примеры употребления. В карточке знакомства их до трёх: столько, сколько
+   нашлось живых предложений с этим словом. У каждого своя озвучка и свой
+   перевод, свёрнутый до нажатия — иначе глаз читает русский раньше, чем
+   разбирает само предложение. */
+function examplesHTML(w) {
+  const list = (S.examples || {})[w.id];
+  if (!list || !list.length) return '';
+  const mark = (t) => esc(t).replace(esc(w.ka), `<b>${esc(w.ka)}</b>`);
+  return `<div class="examples">${list.map((p, i) => `
+    <div class="ex">
+      <button class="ex-toggle" data-i="${i}"><i></i><span>${mark(p[0])}</span></button>
+      ${audioUrl(p[0]) ? `<button class="ex-play" data-i="${i}" title="Послушать">🔊</button>` : ''}
+      <div class="ex-ru" hidden>${esc(p[1])}</div>
+    </div>`).join('')}</div>`;
+}
+function bindExamples(root, w) {
+  const list = (S.examples || {})[w.id] || [];
+  $$('.ex-toggle', root).forEach(b => b.onclick = () => {
+    const box = b.parentElement.querySelector('.ex-ru');
+    box.hidden = !box.hidden;
+    b.classList.toggle('open', !box.hidden);
+  });
+  $$('.ex-play', root).forEach(b => b.onclick = (e) => {
+    e.stopPropagation();
+    speak(list[+b.dataset.i][0]);
+  });
+}
+
 function bindReveal(root, after) {
   const btn = root.querySelector('.reveal-btn');
   if (!btn) return () => {};
@@ -908,6 +936,7 @@ function newWordCard(w, o) {
       ${S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
       <button class="speak" title="Произношение (пробел)">🔊</button>
       ${revealHTML(w.ru)}
+      <div id="ex-slot" hidden>${examplesHTML(w)}</div>
       ${mnemoHTML()}
       <div class="grade-row">
         <button data-a="known"><b>Уже знаю</b><span>больше не показывать</span></button>
@@ -918,7 +947,11 @@ function newWordCard(w, o) {
   bindSpeak(box, w.ka);
   bindMnemo(box, w);
   bindBack(box);
-  const reveal = bindReveal(box);
+  const exSlot = $('#ex-slot', box);
+  // примеры открываются вместе с переводом: до него они подсказали бы значение
+  const reveal = bindReveal(box, () => {
+    if (exSlot && exSlot.firstElementChild) { exSlot.hidden = false; bindExamples(exSlot, w); }
+  });
   if (S.prog.set.autoplay) setTimeout(() => speak(w.ka), 180);
   let used = false;
   const act = (a) => { if (used) return; used = true; o.onPick(a); };
@@ -2509,13 +2542,17 @@ async function boot() {
     if ((localStorage.getItem(THEME_KEY) || 'system') === 'system') { applyTheme(); render(); }
   });
   try {
-    const [wd, al, ai, mn] = await Promise.all([
+    const [wd, al, ai, mn, ex] = await Promise.all([
       fetch(L.data.words).then(r => r.json()),
       fetch(L.data.alphabet).then(r => r.json()),
       fetch(L.data.audio).then(r => r.json()).catch(() => ({})),
       fetch(L.data.mnemonics).then(r => r.json()).catch(() => ({})),
+      // примеры употребления есть не у всех языков и не у всех слов — их отсутствие
+      // не мешает приложению работать, блок просто не рисуется
+      fetch(L.data.examples).then(r => r.json()).catch(() => ({})),
     ]);
-    S.words = wd.words; S.cats = wd.categories; S.alphabet = al; S.audio = ai; S.mnemo = mn || {};
+    S.words = wd.words; S.cats = wd.categories; S.alphabet = al; S.audio = ai;
+    S.mnemo = mn || {}; S.examples = ex || {};
     if (!Object.keys(S.audio).length) {
       setTimeout(() => toast('Озвучка не подгрузилась — обновите страницу (Cmd+Shift+R)'), 800);
     }
