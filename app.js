@@ -677,18 +677,24 @@ function bindSpeak(root, text) {
 /* Звук не должен выдавать ответ. Если на карточке показано русское слово, а вспомнить
    нужно изучаемое, то произнести его вслух — то же самое, что показать: и автоозвучка,
    и кнопка 🔊, и пробел молчат, пока ответ не открыт. */
-/* После ответа каждый вариант можно послушать. Полезнее всего услышать не своё
-   слово, а те, с которыми его перепутал: похожие на слух слова и путаются чаще
-   всего. Иконка ставится только у вариантов на изучаемом языке — для русских
-   переводов озвучки нет. */
-function optionsPlayable(root, options, field) {
-  if (field !== 'ka') return;
-  $$('.opt', root).forEach((b, i) => {
-    const text = options[i].ka;
-    if (!audioUrl(text)) return;
-    b.classList.add('with-play');
-    b.insertAdjacentHTML('beforeend', '<span class="opt-play">🔊</span>');
-    b.onclick = () => speak(text);
+/* Варианты ответа. Если они на изучаемом языке, у каждого своя кнопка 🔊:
+   послушать все четыре полезно и до ответа — на слух слова и путаются чаще
+   всего, — а какой из них верный, звук не выдаёт. Для русских переводов
+   кнопки нет: озвучки для них не существует. */
+function optionsHTML(options, field, numbered) {
+  const playable = field === 'ka';
+  return `<div class="options">${options.map((x, i) => {
+    const label = numbered ? `${i + 1}. ${esc(x[field])}` : esc(x[field]);
+    const btn = `<button class="opt ${playable ? 'ka' : ''}" data-i="${i}">${label}</button>`;
+    if (!playable || !audioUrl(x.ka)) return btn;
+    return `<div class="opt-row">${btn}` +
+           `<button class="opt-play" data-p="${i}" title="Послушать">🔊</button></div>`;
+  }).join('')}</div>`;
+}
+function bindOptionPlay(root, options) {
+  $$('.opt-play', root).forEach(b => b.onclick = (e) => {
+    e.stopPropagation();
+    speak(options[+b.dataset.p].ka);
   });
 }
 
@@ -1178,10 +1184,10 @@ function exerciseChoice(w, mode, o) {
   const box = el(`<div class="trainer">
     ${trainerHead(o)}
     ${promptHTML}
-    <div class="options">${options.map((x, i) =>
-      `<button class="opt ${askKa ? 'ka' : ''}" data-i="${i}">${i + 1}. ${esc(x[field])}</button>`).join('')}</div>
+    ${optionsHTML(options, field, true)}
   </div>`);
   bindSpeak(box, w.ka);
+  bindOptionPlay(box, options);
   if (askKa) holdAudio(box);                      // ответ — изучаемое слово, озвучка назвала бы его
   else if (S.prog.set.autoplay || mode === 'listen') setTimeout(() => speak(w.ka), 200);
 
@@ -1195,7 +1201,6 @@ function exerciseChoice(w, mode, o) {
       if (options[i].id === w.id) b.classList.add('right');
       else if (i === idx) b.classList.add('wrong');
     });
-    optionsPlayable(box, options, field);
     releaseAudio(box);                            // ответ открыт — слово можно и нужно услышать
     speak(w.ka);                                  // ровно один раз: два вызова подряд обрывали друг друга
     if (!ok) {
@@ -1410,13 +1415,23 @@ function exerciseReview(w, o) {
     const slot = $('#mnemo-slot', box);
     if (slot && slot.hidden && hasMnemo(w)) { slot.hidden = false; bindMnemo(slot, w); }
   };
+  // Глазок работает в обе стороны: нажал — открыл, нажал ещё раз — закрыл.
+  // Вместе с ответом прячется и озвучка, если на лицевой стороне русское слово,
+  // иначе закрытый ответ можно было бы просто послушать.
+  const closeReveal = () => {
+    reveal.hidden = true;
+    if (!askKa) holdAudio(box);
+    tools.querySelector('[data-t=look]').classList.remove('used');
+  };
   const look = () => {
+    if (!reveal.hidden) { closeReveal(); return; }
     reveal.hidden = false; releaseAudio(box); showMnemo();
     tools.querySelector('[data-t=look]').classList.add('used');
   };
 
   const typing = () => {
     if (zone.dataset.mode === 'type') return;
+    closeReveal();                                 // проверять себя с открытым ответом бессмысленно
     zone.dataset.mode = 'type'; zone.hidden = false;
     zone.innerHTML = `<div class="typing">
       <input type="text" id="ans" autocomplete="off" autocorrect="off" autocapitalize="off"
@@ -1442,11 +1457,12 @@ function exerciseReview(w, o) {
 
   const picking = () => {
     if (zone.dataset.mode === 'pick') return;
+    closeReveal();                                 // иначе верный вариант виден прямо над списком
     zone.dataset.mode = 'pick'; zone.hidden = false;
     const field = askKa ? 'ru' : 'ka';
     const options = shuffle([w, ...distractors(w, field, 3)]);
-    zone.innerHTML = `<div class="options">${options.map((x, i) =>
-      `<button class="opt ${field === 'ka' ? 'ka' : ''}" data-i="${i}">${esc(x[field])}</button>`).join('')}</div>`;
+    zone.innerHTML = optionsHTML(options, field, false);
+    bindOptionPlay(zone, options);
     $$('.opt', zone).forEach(b => b.onclick = () => {
       const ok = options[+b.dataset.i].id === w.id;
       $$('.opt', zone).forEach((x, i) => {
@@ -1454,7 +1470,6 @@ function exerciseReview(w, o) {
         if (options[i].id === w.id) x.classList.add('right');
         else if (x === b) x.classList.add('wrong');
       });
-      optionsPlayable(zone, options, field);
       finish(ok, ok ? 800 : 1800);
     });
   };
