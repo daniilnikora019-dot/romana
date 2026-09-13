@@ -307,7 +307,7 @@ ROUTES.welcome = function () {
   };
   const box = el(`<div class="trainer" style="max-width:720px">
     <div style="text-align:center;margin-bottom:26px">
-      <div style="font-size:46px" class="ka">ქართული</div>
+      <div style="font-size:46px">Română</div>
       <h1 style="margin:10px 0 6px">Сколько новых слов учить в день?</h1>
       <p class="sub">В словаре ${total} слов и выражений с озвучкой. Норму можно поменять в любой момент в настройках.</p>
     </div>
@@ -870,7 +870,7 @@ ROUTES.review = function () {
     title: s.i ? `Повторено ${plural(s.i, 'слово', 'слова', 'слов')} из ${s.total}`
                : `К повторению: ${plural(s.total, 'слово', 'слова', 'слов')}`,
     progress: s.i / s.total,
-    backwards: rep % 2 === 1,            // чередуем: грузинский→русский, затем русский→грузинский
+    backwards: rep % 2 === 1,            // чередуем: румынский→русский, затем русский→румынский
     reps: rep,
     onDone: (ok, again) => {
       s.hist = s.hist || [];
@@ -1055,7 +1055,7 @@ function exerciseChoice(w, mode, o) {
 
 /* ---------------- упражнение: вспомнил / не вспомнил ---------------- */
 function exerciseRecall(w, o) {
-  const backwards = o.backwards;                       // true: показываем русский, вспоминаем грузинский
+  const backwards = o.backwards;                       // true: показываем русский, вспоминаем румынский
   const front = backwards
     ? `<div class="word-ka" style="font-size:30px">${esc(w.ru)}</div>
        <div class="word-tr">вспомните слово по-румынски</div>`
@@ -1190,7 +1190,7 @@ function exerciseTyping(w, o) {
    и две оценки внизу. Свайп вправо — вспомнил, влево — нет. */
 function exerciseReview(w, o) {
   const backwards = o.backwards;
-  const askKa = !backwards;                       // показываем грузинское, вспоминаем перевод
+  const askKa = !backwards;                       // показываем румынское, вспоминаем перевод
   const front = askKa ? w.ka : w.ru;
   const answer = askKa ? w.ru : w.ka;
   const repNo = (o.reps || 0) + 1;
@@ -1246,7 +1246,7 @@ function exerciseReview(w, o) {
     zone.dataset.mode = 'type'; zone.hidden = false;
     zone.innerHTML = `<div class="typing">
       <input type="text" id="ans" autocomplete="off" autocorrect="off" autocapitalize="off"
-             spellcheck="false" placeholder="${askKa ? 'перевод по-русски' : 'по-грузински или латиницей'}">
+             spellcheck="false" placeholder="${askKa ? 'перевод по-русски' : 'по-румынски'}">
       <button class="btn primary sm" id="check">Проверить</button>
     </div>`;
     const input = $('#ans', zone);
@@ -1621,9 +1621,9 @@ ROUTES.alphabet = function () {
       <button class="btn primary" id="a-quiz">🎯 Тренировка букв</button>
     </div>
     <div class="card" style="margin-bottom:16px;font-size:13.5px;line-height:1.6;color:var(--muted)">
-      В грузинском нет заглавных букв, а письмо строго фонетическое — каждая буква всегда читается одинаково.
-      Сложность для русского уха — пары похожих звуков: придыхательные (თ, ფ, ქ, ჩ, ც) и резкие «гортанные»
-      (ტ, პ, კ, ჭ, წ, ყ). Слушайте озвучку — разница слышна.
+      Румынская орфография почти фонетическая: слова читаются так, как пишутся. Главное — запомнить
+      пять особых букв: ă (нейтральное «э»), â и î (звук «ы»), ș («ш») и ț («ц»). Ещё c и g перед e и i
+      читаются как «ч» и «дж», а ch и gh — как твёрдые «к» и «г».
     </div>
     <div class="alpha-grid">${S.alphabet.map((a, i) => `
       <div class="letter-card" data-i="${i}">
