@@ -36,13 +36,28 @@ function defaultProgress() {
   };
 }
 
+/* Слова, взятые в изучение, но ни разу не названные верно в закреплении.
+   Хранится в прогрессе, а не в сессии: раньше выход из закрепления на полпути
+   оставлял такие слова в пустоте — новыми они больше не предлагались, на
+   повторение ещё не пришли, а сессия с ними терялась. */
+function pendingDrill() {
+  const ids = S.prog.pend || [];
+  return ids.map(id => S.byId.get(id)).filter(w => w && wp(w.id).s === 'learning' && !(wp(w.id).r > 0));
+}
+function markPending(id, on) {
+  const ids = new Set(S.prog.pend || []);
+  on ? ids.add(id) : ids.delete(id);
+  S.prog.pend = [...ids];
+  saveProgress();
+}
+
 function loadProgress() {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const p = JSON.parse(raw);
       p.set = Object.assign(defaultProgress().set, p.set || {});
-      p.w = p.w || {}; p.days = p.days || {};
+      p.w = p.w || {}; p.days = p.days || {}; p.pend = p.pend || [];
       return p;
     }
   } catch (e) { console.warn('прогресс не прочитан', e); }
@@ -342,6 +357,7 @@ ROUTES.welcome = function () {
 ROUTES.home = function () {
   const c = counts(), t = dayRec(today());
   const goalNew = S.prog.set.newPerDay;
+  const unfinished = pendingDrill().length;         // взяли, но ещё не закрепили
   /* В цель дня идут новые слова, впервые названные верно в закреплении, — то есть результат,
      а не намерение: взять слово в работу ещё ничего не значит. Повторения в процент не входят,
      их число диктует расписание, а не усердие; они показаны отдельной строкой. */
@@ -379,9 +395,11 @@ ROUTES.home = function () {
             <span class="ma">›</span></button>
           <button class="menu-row" data-act="learn">
             <span class="mi accent">✨</span>
-            <span class="mt"><b>Учить новые слова</b>
-              <i>Взято сегодня: ${t.started} из ${goalNew}${c.fresh ? ` · доступно ${c.fresh}` : ''}</i></span>
-            <span class="ma">${newLeftToday() || ''} ›</span></button>
+            <span class="mt"><b>${unfinished ? 'Закрепить начатое' : 'Учить новые слова'}</b>
+              <i>${unfinished
+                ? `${plural(unfinished, 'слово ждёт', 'слова ждут', 'слов ждут')} закрепления`
+                : `Закреплено сегодня: ${t.drilled} из ${goalNew}${c.fresh ? ` · доступно ${c.fresh}` : ''}`}</i></span>
+            <span class="ma">${unfinished || newLeftToday() || ''} ›</span></button>
           <button class="menu-row" data-act="review">
             <span class="mi gold">🔄</span>
             <span class="mt"><b>Повторить слова</b>
@@ -470,6 +488,7 @@ function snapshot(w) {
     id: w.id,
     prev: S.prog.w[w.id] ? JSON.parse(JSON.stringify(S.prog.w[w.id])) : null,
     day: JSON.parse(JSON.stringify(dayRec(t))),
+    pend: [...(S.prog.pend || [])],        // иначе шаг назад снова терял недозакреплённое слово
     date: t,
     streak: S.prog.streak, lastActive: S.prog.lastActive,
   };
@@ -477,6 +496,7 @@ function snapshot(w) {
 function restore(snap) {
   if (snap.prev) S.prog.w[snap.id] = snap.prev; else delete S.prog.w[snap.id];
   S.prog.days[snap.date] = snap.day;
+  if (snap.pend) S.prog.pend = [...snap.pend];
   S.prog.streak = snap.streak; S.prog.lastActive = snap.lastActive;
   saveProgress();
 }
@@ -725,10 +745,12 @@ function distractors(w, field, n = 3) {
   }
   return out;
 }
-function answerGrade(w, ok) {
+function answerGrade(w, ok, drill) {
   const p = Object.assign({}, wp(w.id));
   const t = today();
-  if (p.lr !== t) { dayRec(t).rev++; p.lr = t; }
+  // Закрепление — это первое знакомство, а не повторение: считать его повторением
+  // значило бы показывать «сегодня повторено 6», когда режим повторения не открывали.
+  if (p.lr !== t && !drill) { dayRec(t).rev++; p.lr = t; }
   if (p.s === 'mastered') {
     // слово уже выучено: это поддерживающая проверка, а не путь к освоению
     if (ok) { p.d = Date.now() + REFRESH_NEXT; }
@@ -749,6 +771,13 @@ function answerGrade(w, ok) {
 /* ---------------- новые слова ---------------- */
 ROUTES.learn = function () {
   if (!S.session || S.session.kind !== 'learn') {
+    const unfinished = pendingDrill();
+    if (unfinished.length) {              // сначала доводим до конца начатое
+      S.session = { kind: 'learn', queue: [], i: 0, toTrain: [], phase: 'drill',
+                    drill: shuffle(unfinished), hist: [],
+                    pending: new Set(unfinished.map(w => w.id)) };
+      return learnDrill();
+    }
     const q = newQueue();
     if (!q.length) return emptyScreen('✨', 'Новых слов нет',
       'В выбранных категориях и уровнях всё уже пройдено. Добавьте категории или уровни — и новые слова появятся.',
@@ -756,7 +785,7 @@ ROUTES.learn = function () {
     const left = newLeftToday();
     if (left <= 0 && !S.extraNew) {
       return emptyScreen('🎯', 'Дневная норма выполнена',
-        `Вы прошли ${plural(S.prog.set.newPerDay, 'новое слово', 'новых слова', 'новых слов')} за сегодня. ` +
+        `Сегодня закреплено ${plural(dayRec(today()).drilled, 'новое слово', 'новых слова', 'новых слов')}. ` +
         'Можно повторить пройденное или продолжить сверх нормы.',
         'Повторять', () => go('review'),
         'Учить сверх нормы', () => { S.extraNew = true; go('learn'); });
@@ -800,6 +829,7 @@ function applyNewWordChoice(w, a) {
   } else {
     setWp(w.id, { s: 'learning', r: 0, d: Date.now() + STEPS[0], lr: null, e: 0 });
     dayRec(today()).started++;
+    markPending(w.id, true);
   }
   touchStreak();
 }
@@ -866,11 +896,12 @@ function learnDrill() {
       s.hist = s.hist || [];
       s.hist.push({ snap: snapshot(w), i: s.i, phase: 'drill' });
       const was = wp(w.id).r || 0;
-      const res = answerGrade(w, ok);
+      const res = answerGrade(w, ok, true);
       // Слово идёт в зачёт дня, когда впервые названо верно здесь, в закреплении.
       // Смахнуть «учить» — ещё не результат, поэтому взятые слова считаются отдельно:
       // по ним определяется размер порции, иначе брошенная сессия дала бы взять сверх нормы.
       if (ok && was === 0 && res.r === 1) dayRec(today()).drilled++;
+      if (ok) markPending(w.id, false);
       // закрепление не заканчивается, пока каждое слово не будет названо верно
       if (ok) s.pending.delete(w.id); else s.drill.push(w);
       if (again && ok) { s.drill.push(w); s.pending.add(w.id); }
@@ -1283,8 +1314,9 @@ function exerciseReview(w, o) {
     afterAnswer(box, card, ok, w, (again) => o.onDone(ok, again));
   };
 
+  // глазок только открывает ответ; произнести — отдельная кнопка 🔊, она тут же появляется
   const look = () => {
-    reveal.hidden = false; releaseAudio(box); speak(w.ka);
+    reveal.hidden = false; releaseAudio(box);
     tools.querySelector('[data-t=look]').classList.add('used');
   };
 
@@ -1950,7 +1982,9 @@ ROUTES.stats = function () {
   const buckets = statsBuckets(scale, count);
   const sum = (f) => buckets.reduce((s, b) => s + b[f], 0);
   const activeDays = Object.values(S.prog.days || {}).filter(d => d.rev || d.new || d.known).length;
-  const totalStarted = c.learning + c.mastered;
+  // всего закреплено за всю историю — та же величина, что и в колонке периода
+  const totalDrilled = Object.values(S.prog.days || {})
+    .reduce((n, d) => n + (d.drilled === undefined ? (d.started || 0) : d.drilled), 0);
 
   const byLevel = {};
   for (const l of LEVELS) byLevel[l] = { total: 0, m: 0, l: 0, k: 0 };
@@ -2003,7 +2037,7 @@ ROUTES.stats = function () {
         <div class="mrow mhead"><span class="mtot">Всего</span><span class="mper">${periodLabel.replace('за ', '')}</span><span></span><span></span></div>
         ${legendRow('var(--green)', 'Полностью выучено', c.mastered, sum('new'))}
         ${legendRow('var(--accent)', 'Повторено (уникальных)', '—', sum('rev'))}
-        ${legendRow('var(--gold)', 'Закреплено новых слов', totalStarted, sum('drilled'))}
+        ${legendRow('var(--gold)', 'Закреплено новых слов', totalDrilled, sum('drilled'))}
         ${legendRow('var(--slate)', 'Уже известные', c.known, sum('known'))}
       </div>
     </div>
