@@ -1,0 +1,902 @@
+[
+[
+"verbs",
+"a fi",
+"быть"
+],
+[
+"verbs",
+"a avea",
+"иметь"
+],
+[
+"verbs",
+"a face",
+"делать"
+],
+[
+"verbs",
+"a spune",
+"говорить, сказать"
+],
+[
+"verbs",
+"a vorbi",
+"разговаривать"
+],
+[
+"verbs",
+"a merge",
+"идти, ехать"
+],
+[
+"verbs",
+"a veni",
+"приходить"
+],
+[
+"verbs",
+"a pleca",
+"уходить, уезжать"
+],
+[
+"verbs",
+"a sta",
+"стоять, находиться"
+],
+[
+"verbs",
+"a ști",
+"знать"
+],
+[
+"verbs",
+"a cunoaște",
+"быть знакомым, знать кого-то"
+],
+[
+"verbs",
+"a vedea",
+"видеть"
+],
+[
+"verbs",
+"a privi",
+"смотреть"
+],
+[
+"verbs",
+"a auzi",
+"слышать"
+],
+[
+"verbs",
+"a asculta",
+"слушать"
+],
+[
+"verbs",
+"a citi",
+"читать"
+],
+[
+"verbs",
+"a scrie",
+"писать"
+],
+[
+"verbs",
+"a învăța",
+"учить, учиться"
+],
+[
+"verbs",
+"a înțelege",
+"понимать"
+],
+[
+"verbs",
+"a gândi",
+"думать"
+],
+[
+"verbs",
+"a crede",
+"верить, считать"
+],
+[
+"verbs",
+"a vrea",
+"хотеть"
+],
+[
+"verbs",
+"a putea",
+"мочь"
+],
+[
+"verbs",
+"a trebui",
+"быть должным, нужно"
+],
+[
+"verbs",
+"a mânca",
+"есть, кушать"
+],
+[
+"verbs",
+"a bea",
+"пить"
+],
+[
+"verbs",
+"a găti",
+"готовить"
+],
+[
+"verbs",
+"a cumpăra",
+"покупать"
+],
+[
+"verbs",
+"a vinde",
+"продавать"
+],
+[
+"verbs",
+"a plăti",
+"платить"
+],
+[
+"verbs",
+"a lucra",
+"работать"
+],
+[
+"verbs",
+"a se odihni",
+"отдыхать"
+],
+[
+"verbs",
+"a dormi",
+"спать"
+],
+[
+"verbs",
+"a se trezi",
+"просыпаться"
+],
+[
+"verbs",
+"a se scula",
+"вставать"
+],
+[
+"verbs",
+"a aștepta",
+"ждать"
+],
+[
+"verbs",
+"a căuta",
+"искать"
+],
+[
+"verbs",
+"a găsi",
+"находить"
+],
+[
+"verbs",
+"a pierde",
+"терять"
+],
+[
+"verbs",
+"a da",
+"давать"
+],
+[
+"verbs",
+"a lua",
+"брать"
+],
+[
+"verbs",
+"a pune",
+"класть, ставить"
+],
+[
+"verbs",
+"a deschide",
+"открывать"
+],
+[
+"verbs",
+"a închide",
+"закрывать"
+],
+[
+"verbs",
+"a începe",
+"начинать"
+],
+[
+"verbs",
+"a termina",
+"заканчивать"
+],
+[
+"verbs",
+"a ajuta",
+"помогать"
+],
+[
+"verbs",
+"a iubi",
+"любить"
+],
+[
+"verbs",
+"a plăcea",
+"нравиться"
+],
+[
+"verbs",
+"a juca",
+"играть"
+],
+[
+"verbs",
+"a cânta",
+"петь; играть на инструменте"
+],
+[
+"verbs",
+"a dansa",
+"танцевать"
+],
+[
+"verbs",
+"a râde",
+"смеяться"
+],
+[
+"verbs",
+"a plânge",
+"плакать"
+],
+[
+"verbs",
+"a trăi",
+"жить"
+],
+[
+"verbs",
+"a muri",
+"умирать"
+],
+[
+"verbs",
+"a naște",
+"рождать"
+],
+[
+"verbs",
+"a crește",
+"расти, растить"
+],
+[
+"verbs",
+"a schimba",
+"менять"
+],
+[
+"verbs",
+"a alege",
+"выбирать"
+],
+[
+"verbs",
+"a încerca",
+"пытаться, пробовать"
+],
+[
+"verbs",
+"a reuși",
+"удаваться, преуспевать"
+],
+[
+"verbs",
+"a uita",
+"забывать"
+],
+[
+"verbs",
+"a-și aminti",
+"вспоминать"
+],
+[
+"verbs",
+"a întreba",
+"спрашивать"
+],
+[
+"verbs",
+"a răspunde",
+"отвечать"
+],
+[
+"verbs",
+"a explica",
+"объяснять"
+],
+[
+"verbs",
+"a arăta",
+"показывать"
+],
+[
+"verbs",
+"a primi",
+"получать"
+],
+[
+"verbs",
+"a trimite",
+"отправлять"
+],
+[
+"verbs",
+"a suna",
+"звонить"
+],
+[
+"verbs",
+"a călători",
+"путешествовать"
+],
+[
+"verbs",
+"a conduce",
+"водить; руководить"
+],
+[
+"verbs",
+"a zbura",
+"летать"
+],
+[
+"verbs",
+"a înota",
+"плавать"
+],
+[
+"verbs",
+"a alerga",
+"бегать"
+],
+[
+"verbs",
+"a intra",
+"входить"
+],
+[
+"verbs",
+"a ieși",
+"выходить"
+],
+[
+"verbs",
+"a se întoarce",
+"возвращаться"
+],
+[
+"verbs",
+"a rămâne",
+"оставаться"
+],
+[
+"verbs",
+"a se opri",
+"останавливаться"
+],
+[
+"verbs",
+"a continua",
+"продолжать"
+],
+[
+"verbs",
+"a aduce",
+"приносить"
+],
+[
+"verbs",
+"a purta",
+"носить"
+],
+[
+"verbs",
+"a se îmbrăca",
+"одеваться"
+],
+[
+"verbs",
+"a spăla",
+"мыть, стирать"
+],
+[
+"verbs",
+"a curăța",
+"чистить, убирать"
+],
+[
+"verbs",
+"a construi",
+"строить"
+],
+[
+"verbs",
+"a repara",
+"чинить"
+],
+[
+"verbs",
+"a rupe",
+"ломать, рвать"
+],
+[
+"verbs",
+"a tăia",
+"резать"
+],
+[
+"verbs",
+"a număra",
+"считать"
+],
+[
+"verbs",
+"a măsura",
+"измерять"
+],
+[
+"verbs",
+"a compara",
+"сравнивать"
+],
+[
+"verbs",
+"a decide",
+"решать"
+],
+[
+"verbs",
+"a promite",
+"обещать"
+],
+[
+"verbs",
+"a mulțumi",
+"благодарить"
+],
+[
+"verbs",
+"a saluta",
+"приветствовать"
+],
+[
+"verbs",
+"a invita",
+"приглашать"
+],
+[
+"verbs",
+"a se întâlni",
+"встречаться"
+],
+[
+"verbs",
+"a se teme",
+"бояться"
+],
+[
+"verbs",
+"a spera",
+"надеяться"
+],
+[
+"verbs",
+"a se bucura",
+"радоваться"
+],
+[
+"verbs",
+"a se odihni puțin",
+"немного отдохнуть"
+],
+[
+"adjectives",
+"bun",
+"хороший"
+],
+[
+"adjectives",
+"rău",
+"плохой"
+],
+[
+"adjectives",
+"mare",
+"большой"
+],
+[
+"adjectives",
+"mic",
+"маленький"
+],
+[
+"adjectives",
+"lung",
+"длинный"
+],
+[
+"adjectives",
+"scurt",
+"короткий"
+],
+[
+"adjectives",
+"înalt",
+"высокий"
+],
+[
+"adjectives",
+"jos",
+"низкий"
+],
+[
+"adjectives",
+"larg",
+"широкий"
+],
+[
+"adjectives",
+"îngust",
+"узкий"
+],
+[
+"adjectives",
+"greu",
+"тяжёлый; трудный"
+],
+[
+"adjectives",
+"ușor",
+"лёгкий"
+],
+[
+"adjectives",
+"puternic",
+"сильный"
+],
+[
+"adjectives",
+"slab",
+"слабый; худой"
+],
+[
+"adjectives",
+"nou",
+"новый"
+],
+[
+"adjectives",
+"vechi",
+"старый (о вещах)"
+],
+[
+"adjectives",
+"tânăr",
+"молодой"
+],
+[
+"adjectives",
+"bătrân",
+"старый (о человеке)"
+],
+[
+"adjectives",
+"rapid",
+"быстрый"
+],
+[
+"adjectives",
+"lent",
+"медленный"
+],
+[
+"adjectives",
+"fierbinte",
+"горячий"
+],
+[
+"adjectives",
+"rece",
+"холодный"
+],
+[
+"adjectives",
+"cald",
+"тёплый"
+],
+[
+"adjectives",
+"curat",
+"чистый"
+],
+[
+"adjectives",
+"murdar",
+"грязный"
+],
+[
+"adjectives",
+"frumos",
+"красивый"
+],
+[
+"adjectives",
+"urât",
+"некрасивый"
+],
+[
+"adjectives",
+"interesant",
+"интересный"
+],
+[
+"adjectives",
+"plictisitor",
+"скучный"
+],
+[
+"adjectives",
+"simplu",
+"простой"
+],
+[
+"adjectives",
+"complicat",
+"сложный"
+],
+[
+"adjectives",
+"scump",
+"дорогой"
+],
+[
+"adjectives",
+"ieftin",
+"дешёвый"
+],
+[
+"adjectives",
+"bogat",
+"богатый"
+],
+[
+"adjectives",
+"sărac",
+"бедный"
+],
+[
+"adjectives",
+"fericit",
+"счастливый"
+],
+[
+"adjectives",
+"trist",
+"грустный"
+],
+[
+"adjectives",
+"plin",
+"полный"
+],
+[
+"adjectives",
+"gol",
+"пустой"
+],
+[
+"adjectives",
+"corect",
+"правильный"
+],
+[
+"adjectives",
+"greșit",
+"неправильный"
+],
+[
+"adjectives",
+"important",
+"важный"
+],
+[
+"adjectives",
+"necesar",
+"нужный"
+],
+[
+"adjectives",
+"posibil",
+"возможный"
+],
+[
+"adjectives",
+"imposibil",
+"невозможный"
+],
+[
+"adjectives",
+"periculos",
+"опасный"
+],
+[
+"adjectives",
+"sigur",
+"безопасный; уверенный"
+],
+[
+"adjectives",
+"liber",
+"свободный"
+],
+[
+"adjectives",
+"ocupat",
+"занятый"
+],
+[
+"adjectives",
+"cunoscut",
+"известный"
+],
+[
+"adjectives",
+"obișnuit",
+"обычный"
+],
+[
+"adjectives",
+"diferit",
+"разный, отличающийся"
+],
+[
+"adjectives",
+"asemănător",
+"похожий"
+],
+[
+"adjectives",
+"gustos",
+"вкусный"
+],
+[
+"adjectives",
+"dulce",
+"сладкий"
+],
+[
+"adjectives",
+"amar",
+"горький"
+],
+[
+"adjectives",
+"sărat",
+"солёный"
+],
+[
+"adjectives",
+"sănătos",
+"здоровый"
+],
+[
+"adjectives",
+"bolnav",
+"больной"
+],
+[
+"adjectives",
+"liniștit",
+"спокойный"
+],
+[
+"adjectives",
+"zgomotos",
+"шумный"
+],
+[
+"adjectives",
+"întunecat",
+"тёмный"
+],
+[
+"adjectives",
+"luminos",
+"светлый"
+],
+[
+"colors",
+"culoare",
+"цвет"
+],
+[
+"colors",
+"roșu",
+"красный"
+],
+[
+"colors",
+"albastru",
+"синий"
+],
+[
+"colors",
+"verde",
+"зелёный"
+],
+[
+"colors",
+"galben",
+"жёлтый"
+],
+[
+"colors",
+"negru",
+"чёрный"
+],
+[
+"colors",
+"alb",
+"белый"
+],
+[
+"colors",
+"gri",
+"серый"
+],
+[
+"colors",
+"maro",
+"коричневый"
+],
+[
+"colors",
+"roz",
+"розовый"
+],
+[
+"colors",
+"portocaliu",
+"оранжевый"
+],
+[
+"colors",
+"violet",
+"фиолетовый"
+],
+[
+"verbs",
+"a munci",
+"работать, трудиться"
+]
+]
