@@ -529,7 +529,8 @@ function stepBack() {
   s.method = null;
   s.i = h.i;
   if (h.phase) s.phase = h.phase;
-  if (h.drillRemoved) s.toTrain.splice(h.drillRemoved.at, 0, h.drillRemoved.word);
+  if (h.tookAt != null && s.toTrain) s.toTrain.splice(h.tookAt, 1);
+  if (h.topUp && s.queue && s.poolIdx) { s.queue.pop(); s.poolIdx--; }
   if (h.phase === 'drill' && s.pending && s.drill && s.drill[h.i]) s.pending.add(s.drill[h.i].id);
   if (h.right) s.right--;
   if (h.wrong) s.wrong--;
@@ -801,7 +802,11 @@ ROUTES.learn = function () {
     if (!S.batch) return batchPicker(q.length, left);
     const size = Math.min(q.length, Math.max(1, S.batch));
     S.batch = null;
-    S.session = { kind: 'learn', queue: q.slice(0, size), i: 0, toTrain: [], phase: 'intro' };
+    // В порции считаются слова, которые вы будете учить. Отмеченное «уже знаю»
+    // места в ней не занимает — на его место подставляется следующее из запаса,
+    // иначе порция из десяти знакомых слов заканчивалась, не начав ничего учить.
+    S.session = { kind: 'learn', queue: q.slice(0, size), pool: q, poolIdx: size,
+                  target: size, i: 0, toTrain: [], phase: 'intro' };
   }
   const s = S.session;
   if (s.phase === 'intro') return learnIntro();
@@ -852,16 +857,23 @@ function learnIntro() {
     s.phase = 'drill'; s.i = 0; s.drill = shuffle(s.toTrain.slice()); s.hist = [];
     return learnDrill();
   }
+  const taken = s.toTrain.length;
   return newWordCard(w, {
-    progress: s.i / s.queue.length,
-    title: `Новое слово ${s.i + 1} из ${s.queue.length}`,
+    progress: taken / s.target,
+    title: `Новое слово ${taken + 1} из ${s.target}`,
     onPick: (a) => {
       const snap = snapshot(w);
       s.hist = s.hist || [];
-      s.hist.push({ snap, i: s.i, phase: 'intro',
-                    drillRemoved: a === 'learn' ? { at: s.toTrain.length, word: w } : null });
+      // если слово знакомо, дотягиваем очередь следующим из запаса
+      const short = s.toTrain.length + (s.queue.length - s.i - 1) < s.target;
+      const topUp = a === 'known' && short && s.poolIdx < s.pool.length;
+      // индекс, по которому слово встанет в список на закрепление, — чтобы шаг назад
+      // мог его оттуда убрать; раньше откат вставлял слово повторно и оно задваивалось
+      s.hist.push({ snap, i: s.i, phase: 'intro', topUp,
+                    tookAt: a === 'learn' ? s.toTrain.length : null });
       applyNewWordChoice(w, a);
       if (a === 'learn') s.toTrain.push(w);
+      if (topUp) s.queue.push(s.pool[s.poolIdx++]);
       s.i++; render();
     },
   });
