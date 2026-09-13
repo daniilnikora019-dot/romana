@@ -1991,6 +1991,11 @@ function drawActivity(cv, buckets) {
       // скругляем только верх: снизу столбцы смыкаются в сплошную группу
       c.roundRect(x + off, h - pad.b - bh, barW, Math.max(bh, val ? 2 : 0), [3, 3, 0, 0]);
       c.fill();
+      if (val) {                                   // контур отделяет соседние столбцы друг от друга
+        c.lineWidth = 1;
+        c.strokeStyle = '#000';
+        c.stroke();
+      }
       if (!val) return;
       const txt = String(val);
       c.textAlign = 'center';
