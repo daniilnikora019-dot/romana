@@ -259,11 +259,6 @@ h2.sect + .menu-card{margin-bottom:18px}
 }
 .after-answer .btn{flex:1}
 .after-answer.no .btn.primary{background:var(--clay)}
-.hint{text-align:center;color:var(--muted);font-size:12px;margin-top:16px;letter-spacing:.1px}
-.hint kbd{
-  background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;
-  font-size:11px;font-family:inherit;color:var(--text-2);
-}
 .letters{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:16px}
 .letters button{
   padding:9px 14px;border-radius:var(--r-sm);background:var(--surface-2);font-size:19px;

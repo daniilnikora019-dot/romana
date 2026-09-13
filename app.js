@@ -809,9 +809,6 @@ function newWordCard(w, o) {
         <button data-a="learn"><b>Учить это слово</b><span>вернётся на повторение</span></button>
       </div>
     </div>
-    <p class="hint">Сначала вспомните перевод сами, потом откройте 👁 ·
-      смахните: влево — уже знаю, <b>вправо — учить</b> ·
-      <kbd>1</kbd> / <kbd>2</kbd> · <kbd>Enter</kbd> — показать · <kbd>пробел</kbd> — послушать</p>
   </div>`);
   bindSpeak(box, w.ka);
   bindMnemo(box, w);
@@ -1001,8 +998,6 @@ ROUTES.browse = function () {
       <button class="btn ghost" data-a="prev">← Назад</button>
       <button class="btn primary" data-a="next">Дальше →</button>
     </div>
-    <p class="hint">Режим просмотра: на статистику и прогресс не влияет ·
-      <kbd>Enter</kbd> — показать перевод · <kbd>пробел</kbd> — послушать</p>
   </div>`);
   bindSpeak(box, w.ka);
   bindMnemo(box, w);
@@ -1052,7 +1047,6 @@ function exerciseChoice(w, mode, o) {
     ${promptHTML}
     <div class="options">${options.map((x, i) =>
       `<button class="opt ${askKa ? 'ka' : ''}" data-i="${i}">${i + 1}. ${esc(x[field])}</button>`).join('')}</div>
-    <p class="hint"><kbd>1</kbd>–<kbd>4</kbd> ответ · <kbd>пробел</kbd> или 🔊 — послушать ещё раз</p>
   </div>`);
   bindSpeak(box, w.ka);
   if (S.prog.set.autoplay || mode === 'listen') setTimeout(() => speak(w.ka), 200);
@@ -1116,7 +1110,6 @@ function exerciseRecall(w, o) {
       <button class="btn success" data-a="yes">✓ Вспомнил</button>
     </div>
     ${repDots(o.reps || 0)}
-    <p class="hint" id="hint">Вспомните ${backwards ? 'слово' : 'перевод'} и нажмите <kbd>Enter</kbd> или «Показать ответ» · <kbd>пробел</kbd> — послушать</p>
   </div>`);
   const speakWord = () => speak(w.ka);
   box.querySelector('.speak').onclick = speakWord;
@@ -1131,7 +1124,6 @@ function exerciseRecall(w, o) {
     $('#stage-grade', box).hidden = false;
     const slot = $('#mnemo-slot', box);
     if (slot && hasMnemo(w)) { slot.hidden = false; bindMnemo(slot, w); }
-    $('#hint', box).innerHTML = 'Смахните <b>вправо — вспомнил</b>, влево — не вспомнил · <kbd>1</kbd> / <kbd>2</kbd> с клавиатуры';
     if (backwards || !S.prog.set.autoplay) speakWord();
   };
   const grade = (ok) => {
@@ -1183,7 +1175,6 @@ function exerciseTyping(w, o) {
       <button class="btn ghost" data-a="skip">Не помню</button>
       <button class="btn primary" data-a="check">Проверить</button>
     </div>
-    <p class="hint">${L.ask.typeHint}</p>
   </div>`);
   bindSpeak(box, w.ka);
   const input = $('#ans', box), verdict = $('.typing-verdict', box);
@@ -1253,8 +1244,6 @@ function exerciseReview(w, o) {
         <button data-g="yes"><b>Я вспомнил</b><span>это слово</span></button>
       </div>
     </div>
-    <p class="hint" id="hint">Смахните карточку: влево — не вспомнил, <b>вправо — вспомнил</b> ·
-      <kbd>1</kbd> написать · <kbd>2</kbd> посмотреть · <kbd>3</kbd> выбрать</p>
   </div>`);
   bindSpeak(box, w.ka);
   if (S.prog.set.autoplay && askKa) setTimeout(() => speak(w.ka), 180);
