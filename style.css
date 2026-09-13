@@ -251,10 +251,6 @@ h2.sect + .menu-card{margin-bottom:18px}
 .opt.right{border-color:var(--green);background:var(--green-soft);color:var(--green);font-weight:640}
 .opt.wrong{border-color:var(--clay);background:var(--clay-soft);color:var(--clay)}
 .opt:disabled,.opt.done{cursor:default}
-/* после ответа у вариантов на изучаемом языке появляется кнопка прослушивания */
-.opt.with-play{position:relative;padding-right:46px;cursor:pointer}
-.opt-play{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:17px;opacity:.75}
-.opt.with-play:active .opt-play{opacity:1}
 .answer-actions{display:flex;gap:10px;margin-top:18px}
 .answer-actions .btn{flex:1}
 .after-answer{
@@ -572,7 +568,6 @@ canvas{display:block;width:100%}
   .menu-row:hover{background:var(--surface-2)}
   .speak:hover{background:var(--accent);color:#fff;transform:scale(1.05)}
   .opt:hover:not(:disabled):not(.done){border-color:var(--accent);background:var(--accent-soft)}
-  .opt.with-play:hover .opt-play{opacity:1}
   .letters button:hover{background:var(--accent-soft);border-color:var(--accent)}
   .tools button:hover:not(:disabled){background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line)}
   .grade-row button:first-child:hover:not(:disabled){background:var(--clay-soft);color:var(--clay)}
@@ -606,3 +601,12 @@ button,.cat-card,.letter-card,.wcard,.cat-line,.menu-row,.wrow{-webkit-tap-highl
 
 /* кнопка «глазок» на месте будущего перевода — чтобы карточка не прыгала при открытии */
 .reveal .reveal-btn{margin:2px 0}
+
+/* вариант ответа со своей кнопкой прослушивания */
+.opt-row{display:flex;gap:8px;align-items:stretch}
+.opt-row .opt{flex:1;min-width:0}
+.opt-play{
+  flex:0 0 48px;border-radius:var(--r-md);background:var(--surface);
+  border:1px solid var(--line);font-size:17px;line-height:1;
+}
+.opt-play:active{background:var(--surface-2)}
