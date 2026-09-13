@@ -606,14 +606,6 @@ function afterAnswer(box, card, ok, w, done) {
   };
 }
 
-/* Наглядный счётчик: сколько верных ответов из пяти уже набрано */
-function repDots(done) {
-  return `<div class="reps" title="Слово считается выученным после ${masterReps()} верных ответов">
-    ${Array.from({ length: masterReps() }, (_, i) =>
-      `<i class="${i < done ? 'on' : ''}"></i>`).join('')}
-    <span>${done} из ${masterReps()}</span></div>`;
-}
-
 /* ---------------- общие элементы тренировок ---------------- */
 function wordCardHTML(w, opts = {}) {
   const tr = S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : '';
@@ -1253,7 +1245,6 @@ function exerciseRecall(w, o) {
       <button class="btn ghost" data-a="no" style="color:var(--clay);border-color:var(--clay)">✗ Не вспомнил</button>
       <button class="btn success" data-a="yes">✓ Вспомнил</button>
     </div>
-    ${repDots(o.reps || 0)}
   </div>`);
   const speakWord = () => speak(w.ka);
   box.querySelector('.speak').onclick = speakWord;
@@ -1316,7 +1307,6 @@ function exerciseTyping(w, o) {
         <div class="typing-verdict" hidden></div>
       </div>
     </div>
-    ${repDots(o.reps || 0)}
     <div class="answer-actions">
       <button class="btn ghost" data-a="skip">Не помню</button>
       <button class="btn primary" data-a="check">Проверить</button>
@@ -1385,7 +1375,6 @@ function exerciseReview(w, o) {
         <button data-t="look" title="Посмотреть ответ">👁</button>
         <button data-t="pick" title="Выбрать из четырёх">▦</button>
       </div>
-      ${repDots(o.reps || 0)}
       <div class="grade-row" id="grade">
         <button data-g="no"><b>Я не вспомнил</b><span>это слово</span></button>
         <button data-g="yes"><b>Я вспомнил</b><span>это слово</span></button>
@@ -1408,6 +1397,12 @@ function exerciseReview(w, o) {
     // Инструменты проверки после ответа не нужны, а место занимают: убираем их,
     // чтобы карточка вместе с кнопкой «Дальше» помещалась на экран без прокрутки.
     tools.hidden = true;
+    // Если у вариантов есть свои 🔊, верхняя кнопка озвучки их дублирует —
+    // убираем и её, это ещё сорок с лишним пикселей в пользу кнопки «Дальше».
+    if (zone.querySelector('.opt-play')) {
+      const top = box.querySelector('.review-card > .speak');
+      if (top) top.hidden = true;
+    }
     const card = box.querySelector('.review-card');
     card.classList.add(ok ? 'said-yes' : 'said-no');
     // Строка оценки и панель «дальше» означали одно и то же и стояли друг под

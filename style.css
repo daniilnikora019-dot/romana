@@ -303,7 +303,7 @@ h2.sect + .menu-card{margin-bottom:18px}
 }
 .tools button.used{background:var(--accent-soft);color:var(--accent)}
 .tools button:disabled{opacity:.35}
-.grade-row{display:flex;margin:20px -20px 0;border-top:1px solid var(--line)}
+.grade-row{display:flex;margin:12px -20px 0;border-top:1px solid var(--line)}
 .grade-row button{
   flex:1;padding:16px 10px;display:flex;flex-direction:column;gap:2px;align-items:center;
   transition:background .14s;
@@ -324,10 +324,6 @@ h2.sect + .menu-card{margin-bottom:18px}
 .swipe-badge.left{background:var(--clay)}
 
 /* счётчик верных ответов */
-.reps{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:16px}
-.reps i{width:9px;height:9px;border-radius:50%;background:var(--surface-3);display:block}
-.reps i.on{background:var(--green)}
-.reps span{font-size:11.5px;color:var(--muted);margin-left:6px;font-variant-numeric:tabular-nums}
 
 /* выбор способа проверки */
 .choose-actions{display:grid;gap:9px}
