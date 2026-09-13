@@ -159,7 +159,7 @@ function speak(text) {
   a.play().catch(err => {
     // Safari и Chrome блокируют звук без жеста пользователя — сообщаем, а не молчим
     toast(err.name === 'NotAllowedError'
-      ? 'Браузер заблокировал звук: нажмите кнопку 🔊 ещё раз'
+      ? 'Браузер заблокировал звук: нажмите кнопку ▶️ ещё раз'
       : 'Не удалось воспроизвести: ' + err.name);
   });
 }
@@ -244,9 +244,9 @@ ROUTES.menu = function () {
 
     <div class="menu-card" style="margin-top:16px">
       <button class="menu-row" id="m-sound">
-        <span class="mi">${S.prog.set.autoplay ? '🔊' : '🔇'}</span>
+        <span class="mi">${S.prog.set.autoplay ? '▶️' : '⏸️'}</span>
         <span class="mt"><b>Автоозвучка</b>
-          <i>${S.prog.set.autoplay ? 'слово произносится при показе' : 'выключена, кнопка 🔊 работает'}</i></span>
+          <i>${S.prog.set.autoplay ? 'слово произносится при показе' : 'выключена, кнопка ▶️ работает'}</i></span>
         <span class="ma">${S.prog.set.autoplay ? 'вкл' : 'выкл'}</span></button>
       <button class="menu-row" data-go="about">
         <span class="mi">ℹ️</span>
@@ -614,7 +614,7 @@ function wordCardHTML(w, opts = {}) {
     <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span>
     <div class="word-ka ka">${opts.hideKa ? '•••' : esc(w.ka)}</div>
     ${opts.hideKa ? '' : tr}
-    <button class="speak ${opts.bigSpeak ? 'lg' : ''}" title="Произношение (пробел)">🔊</button>
+    <button class="speak ${opts.bigSpeak ? 'lg' : ''}" title="Произношение (пробел)">▶️</button>
     ${opts.ru ? `<div class="word-ru">${esc(w.ru)}</div>` : ''}
   </div>`;
 }
@@ -661,7 +661,7 @@ function examplesHTML(w) {
   return `<div class="examples">${list.map((p, i) => `
     <div class="ex">
       <button class="ex-toggle" data-i="${i}"><i></i><span>${mark(p[0])}</span></button>
-      ${audioUrl(p[0]) ? `<button class="ex-play" data-i="${i}" title="Послушать">🔊</button>` : ''}
+      ${audioUrl(p[0]) ? `<button class="ex-play" data-i="${i}" title="Послушать">▶️</button>` : ''}
       <div class="ex-ru" hidden>${esc(p[1])}</div>
     </div>`).join('')}</div>`;
 }
@@ -699,8 +699,8 @@ function bindSpeak(root, text) {
 
 /* Звук не должен выдавать ответ. Если на карточке показано русское слово, а вспомнить
    нужно изучаемое, то произнести его вслух — то же самое, что показать: и автоозвучка,
-   и кнопка 🔊, и пробел молчат, пока ответ не открыт. */
-/* Варианты ответа. Если они на изучаемом языке, у каждого своя кнопка 🔊:
+   и кнопка ▶️, и пробел молчат, пока ответ не открыт. */
+/* Варианты ответа. Если они на изучаемом языке, у каждого своя кнопка ▶️:
    послушать все четыре полезно и до ответа — на слух слова и путаются чаще
    всего, — а какой из них верный, звук не выдаёт. Для русских переводов
    кнопки нет: озвучки для них не существует. */
@@ -711,7 +711,7 @@ function optionsHTML(options, field, numbered) {
     const btn = `<button class="opt ${playable ? 'ka' : ''}" data-i="${i}">${label}</button>`;
     if (!playable || !audioUrl(x.ka)) return btn;
     return `<div class="opt-row">${btn}` +
-           `<button class="opt-play" data-p="${i}" title="Послушать">🔊</button></div>`;
+           `<button class="opt-play" data-p="${i}" title="Послушать">▶️</button></div>`;
   }).join('')}</div>`;
 }
 function bindOptionPlay(root, options) {
@@ -934,7 +934,7 @@ function newWordCard(w, o) {
         <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span></div>
       <div class="word-ka ka">${esc(w.ka)}</div>
       ${S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
-      <button class="speak" title="Произношение (пробел)">🔊</button>
+      <button class="speak" title="Произношение (пробел)">▶️</button>
       ${revealHTML(w.ru)}
       <div id="ex-slot" hidden>${examplesHTML(w)}</div>
       ${mnemoHTML()}
@@ -1157,7 +1157,7 @@ ROUTES.browse = function () {
         <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span></div>
       <div class="word-ka ka">${esc(w.ka)}</div>
       ${S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
-      <button class="speak lg" title="Произношение">🔊</button>
+      <button class="speak lg" title="Произношение">▶️</button>
       ${revealHTML(w.ru)}
       ${mnemoHTML()}
     </div>
@@ -1202,7 +1202,7 @@ function exerciseChoice(w, mode, o) {
   const promptHTML = mode === 'listen'
     ? `<div class="word-card"><span class="lvl">${w.lvl}</span>
          <div class="word-ka" style="font-size:30px;color:var(--muted)">Послушайте слово</div>
-         <button class="speak lg" title="Повторить">🔊</button></div>`
+         <button class="speak lg" title="Повторить">▶️</button></div>`
     : askKa
       ? `<div class="word-card"><span class="lvl">${w.lvl}</span>
            <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span>
@@ -1263,7 +1263,7 @@ function exerciseRecall(w, o) {
       <span class="lvl">${w.lvl}</span>
       <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span>
       ${front}
-      <button class="speak lg" title="Произношение (пробел)">🔊</button>
+      <button class="speak lg" title="Произношение (пробел)">▶️</button>
       <div id="answer" hidden>
         <div class="word-ru">${esc(backwards ? w.ka : w.ru)}</div>
         ${backwards && S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
@@ -1333,7 +1333,7 @@ function exerciseTyping(w, o) {
       <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span>
       <div class="word-ka" style="font-size:27px">${esc(w.ru)}</div>
       <div class="word-tr">${L.ask.type}</div>
-      <button class="speak lg" title="Произношение">🔊</button>
+      <button class="speak lg" title="Произношение">▶️</button>
       <div class="typing">
         <input type="text" id="ans" autocomplete="off" autocorrect="off" autocapitalize="off"
                spellcheck="false" placeholder="напишите слово">
@@ -1396,7 +1396,7 @@ function exerciseReview(w, o) {
         <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span></div>
       <div class="word-ka ${askKa ? 'ka' : ''}" style="${askKa ? '' : 'font-size:30px'}">${esc(front)}</div>
       ${askKa && S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
-      <button class="speak" title="Произношение (пробел)">🔊</button>
+      <button class="speak" title="Произношение (пробел)">▶️</button>
       <div class="reveal" id="reveal" hidden>
         <div class="word-ru ${askKa ? '' : 'ka'}">${esc(answer)}</div>
         ${!askKa && S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
@@ -1430,7 +1430,7 @@ function exerciseReview(w, o) {
     // Инструменты проверки после ответа не нужны, а место занимают: убираем их,
     // чтобы карточка вместе с кнопкой «Дальше» помещалась на экран без прокрутки.
     tools.hidden = true;
-    // Если у вариантов есть свои 🔊, верхняя кнопка озвучки их дублирует —
+    // Если у вариантов есть свои ▶️, верхняя кнопка озвучки их дублирует —
     // убираем и её, это ещё сорок с лишним пикселей в пользу кнопки «Дальше».
     if (zone.querySelector('.opt-play')) {
       const top = box.querySelector('.review-card > .speak');
@@ -1455,7 +1455,7 @@ function exerciseReview(w, o) {
     setTimeout(bring, 450);
   };
 
-  // глазок только открывает ответ; произнести — отдельная кнопка 🔊, она тут же появляется
+  // глазок только открывает ответ; произнести — отдельная кнопка ▶️, она тут же появляется
   // ассоциация открывается вместе с ответом: подсказка по созвучию имеет смысл,
   // когда слово уже перед глазами, а до ответа она его выдала бы
   const showMnemo = () => {
@@ -1553,7 +1553,7 @@ function exerciseBuild(w, o) {
       <span class="lvl">${w.lvl}</span>
       <div class="word-ka" style="font-size:26px">${esc(w.ru)}</div>
       <div class="word-tr">соберите слово по буквам${S.prog.set.translit ? ' · ' + esc(w.tr) : ''}</div>
-      <button class="speak lg">🔊</button>
+      <button class="speak lg">▶️</button>
       <div class="slot ka" id="slot"></div>
       <div class="letters ka">${chars.map((c, i) => `<button data-c="${esc(c)}" data-i="${i}">${esc(c)}</button>`).join('')}</div>
     </div>
@@ -1896,7 +1896,7 @@ function alphabetQuiz() {
     <p class="sub" style="text-align:center;margin-bottom:14px">Буква ${q.i + 1} из ${q.total}</p>
     <div class="word-card">
       <div class="word-ka ka" style="font-size:64px">${a[0]}</div>
-      <button class="speak lg">🔊</button>
+      <button class="speak lg">▶️</button>
       <div class="word-tr">какой это звук?</div>
     </div>
     <div class="options">${opts.map((o, i) => `<button class="opt" data-i="${i}">${i + 1}. <b>${esc(o[3])}</b> — ${esc(o[4])}</button>`).join('')}</div>
