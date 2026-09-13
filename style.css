@@ -603,3 +603,6 @@ button,.cat-card,.letter-card,.wcard,.cat-line,.menu-row,.wrow{-webkit-tap-highl
   background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);
   resize:vertical;word-break:break-all}
 .modal textarea:focus{outline:none;border-color:var(--accent)}
+
+/* кнопка «глазок» на месте будущего перевода — чтобы карточка не прыгала при открытии */
+.reveal .reveal-btn{margin:2px 0}
