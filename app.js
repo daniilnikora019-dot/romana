@@ -465,12 +465,13 @@ ROUTES.home = function () {
 
     <div class="chart-card">
       <h3>Активность за 14 дней</h3>
-      <p class="cap">Закреплено новых, повторено уникальных и выучено полностью · листается вбок</p>
+      <p class="cap">Закреплено новых, повторено уникальных, выучено полностью и отмечено «уже знаю» · листается вбок</p>
       <div class="chart-scroll"><canvas id="home-chart" height="158"></canvas></div>
       <div class="legend">
         <span><i class="dot" style="background:var(--gold)"></i>закреплено новых</span>
         <span><i class="dot" style="background:var(--accent)"></i>повторено</span>
         <span><i class="dot" style="background:var(--green)"></i>выучено полностью</span>
+        <span><i class="dot" style="background:var(--slate)"></i>уже знаю</span>
       </div>
     </div>
   </div>`);
@@ -783,16 +784,56 @@ ROUTES.learn = function () {
         `Сегодня закреплено ${plural(dayRec(today()).drilled, 'новое слово', 'новых слова', 'новых слов')}. ` +
         'Можно повторить пройденное или продолжить сверх нормы.',
         'Повторять', () => go('review'),
-        'Учить сверх нормы', () => { S.extraNew = true; go('learn'); });
+        'Учить сверх нормы', () => { S.extraNew = true; S.batch = null; go('learn'); });
     }
-    const perBatch = Math.min(S.prog.set.newPerDay, 20);   // за один заход — не больше 20 карточек подряд
-    const size = Math.min(q.length, Math.max(1, S.extraNew ? perBatch : Math.min(left, perBatch)));
+    // Размер порции спрашиваем каждый раз: дневная норма — это план на день,
+    // а сколько слов взять прямо сейчас, зависит от того, сколько есть времени.
+    if (!S.batch) return batchPicker(q.length, left);
+    const size = Math.min(q.length, Math.max(1, S.batch));
+    S.batch = null;
     S.session = { kind: 'learn', queue: q.slice(0, size), i: 0, toTrain: [], phase: 'intro' };
   }
   const s = S.session;
   if (s.phase === 'intro') return learnIntro();
   return learnDrill();
 };
+
+/* Сколько новых слов взять прямо сейчас. По умолчанию предлагается остаток
+   дневной нормы, но человек волен взять меньше или больше — норма остаётся
+   планом на день, а не ограничением на один заход. */
+function batchPicker(available, left) {
+  const suggested = Math.max(1, Math.min(left > 0 ? left : 10, available));
+  const sizes = [...new Set([5, 10, 15, 20, suggested])]
+    .filter(n => n >= 1 && n <= available).sort((a, b) => a - b);
+  const done = dayRec(today()).drilled;
+  const box = el(`<div class="trainer" style="max-width:560px">
+    ${subHead('Новая порция', 'home')}
+    <div style="text-align:center;margin:6px 0 22px">
+      <h1 style="margin:0 0 6px">Сколько слов возьмём?</h1>
+      <p class="sub">Сегодня закреплено ${done} из ${S.prog.set.newPerDay} по дневной норме ·
+        доступно ${plural(available, 'новое слово', 'новых слова', 'новых слов')}</p>
+    </div>
+    <div class="cats-grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
+      ${sizes.map(n => `
+        <button class="cat-card" data-n="${n}" style="text-align:left">
+          <div class="top"><span class="ic" style="font-size:26px;font-weight:750;color:var(--accent)">${n}</span>
+            <div><div class="nm">${n === suggested ? 'Как по норме' : 'слов'}</div>
+              <div class="cnt">${n === suggested ? 'остаток на сегодня' : '&nbsp;'}</div></div></div>
+        </button>`).join('')}
+    </div>
+    <div class="card" style="margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:14px">Своё число:</span>
+      <input type="number" id="own" min="1" max="${available}" value="${suggested}" style="width:90px">
+      <button class="btn primary" id="own-go" style="margin-left:auto">Начать</button>
+    </div>
+  </div>`);
+  const start = (n) => { S.batch = Math.max(1, Math.min(available, n || suggested)); render(); };
+  bindSubHead(box);
+  $$('[data-n]', box).forEach(b => b.onclick = () => start(+b.dataset.n));
+  $('#own-go', box).onclick = () => start(+$('#own', box).value);
+  $('#own', box).onkeydown = (e) => { if (e.key === 'Enter') start(+e.target.value); };
+  return box;
+}
 
 function learnIntro() {
   const s = S.session, w = s.queue[s.i];
@@ -878,7 +919,7 @@ function learnDrill() {
     S.session = null;
     return emptyScreen('🎉', 'Порция пройдена!',
       `Взято в изучение: ${plural(n, 'слово', 'слова', 'слов')}. Они вернутся на повторение по расписанию.`,
-      'Следующая порция', () => { go('learn'); }, 'На главную', () => go('home'));
+      'Следующая порция', () => { S.batch = null; go('learn'); }, 'На главную', () => go('home'));
   }
   // чередуем направления: изучаемый → русский, затем русский → изучаемый
   const mode = s.i % 2 === 0 ? 'ka2ru' : 'ru2ka';
@@ -1867,14 +1908,14 @@ function onBarColor(hex) {
 function drawActivity(cv, buckets) {
   if (!cv) return;
   const wrap = cv.parentElement;
-  const MIN_GROUP = 76;                    // ширина группы столбцов: числа должны помещаться внутрь
+  const MIN_GROUP = 96;                    // ширина группы: четыре столбца и числа внутри них
   if (wrap && wrap.classList.contains('chart-scroll')) {
     const need = buckets.length * MIN_GROUP + 44;
     cv.style.width = Math.max(wrap.clientWidth, need) + 'px';
   }
   const { c, w, h } = prepCanvas(cv, 158);
   const pad = { l: 34, r: 10, t: 20, b: 22 };
-  const max = Math.max(4, ...buckets.map(d => Math.max(d.drilled, d.rev, d.new)));
+  const max = Math.max(4, ...buckets.map(d => Math.max(d.drilled, d.rev, d.new, d.known)));
   const bw = (w - pad.l - pad.r) / buckets.length;
   const ih = h - pad.t - pad.b;
   c.strokeStyle = css('--line'); c.lineWidth = 1;
@@ -1886,8 +1927,8 @@ function drawActivity(cv, buckets) {
   }
   buckets.forEach((d, i) => {
     const x = pad.l + i * bw;
-    const gap = Math.min(bw * 0.08, 5);
-    const barW = Math.max(3, (bw - gap * 4) / 3);
+    const gap = Math.min(bw * 0.06, 4);
+    const barW = Math.max(3, (bw - gap * 5) / 4);
     const draw = (val, color, off) => {
       const bh = ih * (val / max);
       c.fillStyle = color;
@@ -1915,10 +1956,11 @@ function drawActivity(cv, buckets) {
       }
       c.textAlign = 'start';
     };
-    // три серии: закреплено новых, повторено, выучено полностью
+    // четыре серии: закреплено новых, повторено, выучено полностью, отмечено «уже знаю»
     draw(d.drilled, css('--gold'), gap);
     draw(d.rev, css('--accent'), gap * 2 + barW);
     draw(d.new, css('--green'), gap * 3 + barW * 2);
+    draw(d.known, css('--slate'), gap * 4 + barW * 3);
   });
   axisLabels(c, buckets, pad, w, h, (i) => pad.l + i * bw + bw / 2);
   // при первой отрисовке показываем свежие дни — правый край
@@ -1963,18 +2005,29 @@ function drawCumulative(cv, buckets) {
 }
 
 /* ---------------- статистика ---------------- */
+/* Переключатель задаёт, чем меряется один столбец: днём, неделей, месяцем
+   или всей историей. Раньше он смешивал период и шаг — «90 дней» молча
+   рисовались неделями, и было непонятно, что означает столбец. */
 const SCALES = {
-  '7':   ['7 дней',    'day',   7,  'за 7 дней'],
-  '30':  ['30 дней',   'day',   30, 'за 30 дней'],
-  '90':  ['90 дней',   'week',  13, 'за 90 дней'],
-  'all': ['Всё время', 'month', 24, 'за всё время'],
+  day:   ['День',      'day',   14, 'по дням'],
+  week:  ['Неделя',    'week',  12, 'по неделям'],
+  month: ['Месяц',     'month', 12, 'по месяцам'],
+  all:   ['Всё время', 'month',  0, 'за всё время'],
 };
+
+/* сколько месяцев прошло с первого дня занятий — для шкалы «всё время» */
+function monthsOfHistory() {
+  const dates = Object.keys(S.prog.days || {}).sort();
+  if (!dates.length) return 1;
+  const first = new Date(dates[0] + 'T00:00:00'), now = new Date();
+  return Math.max(1, (now.getFullYear() - first.getFullYear()) * 12 + now.getMonth() - first.getMonth() + 1);
+}
 
 ROUTES.stats = function () {
   const c = counts();
-  const key = S.statsScale || '7';
+  const key = SCALES[S.statsScale] ? S.statsScale : 'day';
   const [, scale, count, periodLabel] = SCALES[key];
-  const buckets = statsBuckets(scale, count);
+  const buckets = statsBuckets(scale, key === 'all' ? monthsOfHistory() : count);
   const sum = (f) => buckets.reduce((s, b) => s + b[f], 0);
   const activeDays = Object.values(S.prog.days || {}).filter(d => d.rev || d.new || d.known).length;
   // всего закреплено за всю историю — та же величина, что и в колонке периода
