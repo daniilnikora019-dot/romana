@@ -614,3 +614,6 @@ button,.cat-card,.letter-card,.wcard,.cat-line,.menu-row,.wrow{-webkit-tap-highl
 
 /* после вердикта в строке оценки остаётся одна кнопка — она занимает всю ширину */
 .grade-row button:only-child{border-right:none}
+
+/* строка действия не должна прятаться под нижней панелью при автоподводке */
+.grade-row{scroll-margin-bottom:calc(96px + env(safe-area-inset-bottom))}

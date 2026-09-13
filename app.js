@@ -1405,7 +1405,9 @@ function exerciseReview(w, o) {
     releaseAudio(box);
     showMnemo();
     speak(w.ka);
-    $$('#tools button', box).forEach(b => b.disabled = true);
+    // Инструменты проверки после ответа не нужны, а место занимают: убираем их,
+    // чтобы карточка вместе с кнопкой «Дальше» помещалась на экран без прокрутки.
+    tools.hidden = true;
     const card = box.querySelector('.review-card');
     card.classList.add(ok ? 'said-yes' : 'said-no');
     // Строка оценки и панель «дальше» означали одно и то же и стояли друг под
@@ -1415,6 +1417,14 @@ function exerciseReview(w, o) {
     grade.innerHTML = '<button data-g="next"><b>Дальше →</b><span>' +
       (ok ? 'вспомнили' : 'вернётся ещё раз') + '</span></button>';
     grade.querySelector('[data-g=next]').onclick = () => o.onDone(ok, false);
+    // Высота карточки гуляет от длины слова, названия категории и наличия
+    // ассоциации, поэтому не подгоняем пиксели, а подводим строку действия
+    // под глаз: искать кнопку прокруткой пользователю не приходится.
+    // Подводим дважды: сразу и после того, как раскрытый ответ и ассоциация
+    // достроятся — иначе первая подводка целится по ещё не сложившейся вёрстке.
+    const bring = () => grade.scrollIntoView({ block: 'end', behavior: 'smooth' });
+    setTimeout(bring, 60);
+    setTimeout(bring, 450);
   };
 
   // глазок только открывает ответ; произнести — отдельная кнопка 🔊, она тут же появляется
