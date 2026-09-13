@@ -688,6 +688,21 @@ function bindSpeak(root, text) {
 /* Звук не должен выдавать ответ. Если на карточке показано русское слово, а вспомнить
    нужно изучаемое, то произнести его вслух — то же самое, что показать: и автоозвучка,
    и кнопка 🔊, и пробел молчат, пока ответ не открыт. */
+/* После ответа каждый вариант можно послушать. Полезнее всего услышать не своё
+   слово, а те, с которыми его перепутал: похожие на слух слова и путаются чаще
+   всего. Иконка ставится только у вариантов на изучаемом языке — для русских
+   переводов озвучки нет. */
+function optionsPlayable(root, options, field) {
+  if (field !== 'ka') return;
+  $$('.opt', root).forEach((b, i) => {
+    const text = options[i].ka;
+    if (!audioUrl(text)) return;
+    b.classList.add('with-play');
+    b.insertAdjacentHTML('beforeend', '<span class="opt-play">🔊</span>');
+    b.onclick = () => speak(text);
+  });
+}
+
 function holdAudio(box) {
   const b = box.querySelector('.speak');
   if (b) b.hidden = true;
@@ -1187,14 +1202,14 @@ function exerciseChoice(w, mode, o) {
     answered = true;
     const ok = options[idx].id === w.id;
     $$('.opt', box).forEach((b, i) => {
-      b.disabled = true;
+      b.classList.add('done');                     // не отключаем: кнопка ещё должна звучать
       if (options[i].id === w.id) b.classList.add('right');
       else if (i === idx) b.classList.add('wrong');
     });
+    optionsPlayable(box, options, field);
     releaseAudio(box);                            // ответ открыт — слово можно и нужно услышать
-    if (askKa) speak(w.ka);
+    speak(w.ka);                                  // ровно один раз: два вызова подряд обрывали друг друга
     if (!ok) {
-      speak(w.ka);
       box.appendChild(el(`<div class="word-card" style="margin-top:14px;padding:18px">
         <div class="word-ka ka" style="font-size:26px;margin:0">${esc(w.ka)}</div>
         <div class="word-tr">${esc(w.tr)}</div>
@@ -1438,10 +1453,11 @@ function exerciseReview(w, o) {
     $$('.opt', zone).forEach(b => b.onclick = () => {
       const ok = options[+b.dataset.i].id === w.id;
       $$('.opt', zone).forEach((x, i) => {
-        x.disabled = true;
+        x.classList.add('done');
         if (options[i].id === w.id) x.classList.add('right');
         else if (x === b) x.classList.add('wrong');
       });
+      optionsPlayable(zone, options, field);
       finish(ok, ok ? 800 : 1800);
     });
   };
@@ -1974,13 +1990,17 @@ function drawActivity(cv, buckets) {
   }
   buckets.forEach((d, i) => {
     const x = pad.l + i * bw;
-    const gap = Math.min(bw * 0.06, 4);
-    const barW = Math.max(3, (bw - gap * 5) / 4);
+    // Столбцы одной группы стоят вплотную, отступ остаётся между группами.
+    // Серии с нулём не рисуются и не занимают место: иначе день с одной-двумя
+    // непустыми серией выглядел как столбцы, разбросанные дырами.
+    const gap = Math.min(bw * 0.22, 14);
+    const barW = Math.max(3, (bw - gap) / 4);      // толщина постоянна, сколько бы серий ни было
     const draw = (val, color, off) => {
       const bh = ih * (val / max);
       c.fillStyle = color;
       c.beginPath();
-      c.roundRect(x + off, h - pad.b - bh, barW, Math.max(bh, val ? 2 : 0), 3);
+      // скругляем только верх: снизу столбцы смыкаются в сплошную группу
+      c.roundRect(x + off, h - pad.b - bh, barW, Math.max(bh, val ? 2 : 0), [3, 3, 0, 0]);
       c.fill();
       if (!val) return;
       const txt = String(val);
@@ -2004,10 +2024,14 @@ function drawActivity(cv, buckets) {
       c.textAlign = 'start';
     };
     // четыре серии: закреплено новых, повторено, выучено полностью, отмечено «уже знаю»
-    draw(d.drilled, css('--gold'), gap);
-    draw(d.rev, css('--accent'), gap * 2 + barW);
-    draw(d.new, css('--green'), gap * 3 + barW * 2);
-    draw(d.known, css('--slate'), gap * 4 + barW * 3);
+    const series = [
+      [d.drilled, css('--gold')],
+      [d.rev, css('--accent')],
+      [d.new, css('--green')],
+      [d.known, css('--slate')],
+    ].filter(([val]) => val > 0);
+    const groupW = barW * series.length;
+    series.forEach(([val, color], k) => draw(val, color, (bw - groupW) / 2 + barW * k));
   });
   axisLabels(c, buckets, pad, w, h, (i) => pad.l + i * bw + bw / 2);
   // при первой отрисовке показываем свежие дни — правый край
