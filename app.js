@@ -2114,15 +2114,20 @@ function openSettings() {
   };
   $('#s-close', bg).onclick = () => { bg.remove(); render(); };
   bg.onclick = (e) => { if (e.target === bg) { bg.remove(); render(); } };
-  $('#s-copy', bg).onclick = async () => {
-    let code;
-    try { code = await progCode(); }
-    catch (e) { toast('Не удалось собрать код'); return; }
-    try {
-      await navigator.clipboard.writeText(code);
-      toast(`Код скопирован (${Math.round(code.length / 1024)} КБ) — вставьте его в Заметки`);
-    } catch (e) {                                   // буфер недоступен — даём выделить руками
-      showCode(code);
+  $('#s-copy', bg).onclick = () => {
+    // Safari отдаёт буфер обмена только тому вызову, что начался прямо в обработчике
+    // нажатия, а сжатие асинхронное. Поэтому буферу передаётся обещание, а не готовый
+    // текст: разрешение удерживается, пока код собирается.
+    const ready = progCode();
+    ready.catch(() => {});                          // ошибку разбираем ниже, здесь глушим
+    const done = (code) => toast(`Код скопирован (${codeSize(code)}) — вставьте его в Заметки`);
+    const manual = () => ready.then(showCode, () => toast('Не удалось собрать код'));
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      const blob = ready.then(c => new Blob([c], { type: 'text/plain' }));
+      navigator.clipboard.write([new ClipboardItem({ 'text/plain': blob })])
+        .then(() => ready.then(done), manual);
+    } else {
+      ready.then(c => navigator.clipboard.writeText(c).then(() => done(c), manual), manual);
     }
   };
   $('#s-paste', bg).onclick = () => {
@@ -2226,17 +2231,28 @@ function applyRestored(p) {
   saveProgress();
 }
 
+function codeSize(code) {
+  return code.length < 1024 ? plural(code.length, 'символ', 'символа', 'символов')
+                            : Math.round(code.length / 1024) + ' КБ';
+}
+
 /* показать код, когда буфер обмена недоступен */
 function showCode(code) {
   const w = el(`<div class="modal-bg"><div class="modal">
     <h2>Код прогресса</h2>
     <p class="set-note">Скопируйте текст целиком и сохраните его, например в Заметках.</p>
     <textarea id="s-code-out" rows="6" readonly></textarea>
-    <div style="display:flex;margin-top:14px">
+    <div style="display:flex;gap:9px;margin-top:14px">
+      <button class="btn ghost sm" id="s-code-copy">📋 Скопировать</button>
       <button class="btn primary sm" id="s-code-done" style="margin-left:auto">Готово</button>
     </div>
   </div></div>`);
   $('#s-code-out', w).value = code;
+  $('#s-code-copy', w).onclick = () => {           // код уже собран — обычной записи хватает
+    navigator.clipboard.writeText(code)
+      .then(() => toast(`Код скопирован (${codeSize(code)})`),
+            () => toast('Буфер обмена недоступен — выделите текст и скопируйте вручную'));
+  };
   $('#s-code-done', w).onclick = () => w.remove();
   w.onclick = (e) => { if (e.target === w) w.remove(); };
   document.body.appendChild(w);
