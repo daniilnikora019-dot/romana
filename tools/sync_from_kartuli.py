@@ -10,6 +10,7 @@ REPLACEMENTS = [
     ('/* ქართული — тренажёр грузинского.', '/* Română — тренажёр румынского.'),
     ("const LS_KEY = 'kartuli_progress_v1';", "const LS_KEY = 'romana_progress_v1';"),
     ("'kartuli_theme'", "'romana_theme'"),
+    ('`kartuli-progress-', '`romana-progress-'),
     ("fetch('data/words.json')", "fetch('data/words-ro.json')"),
     ("fetch('data/alphabet.json')", "fetch('data/alphabet-ro.json')"),
     ("fetch('data/mnemonics.json')", "fetch('data/mnemonics-ro.json')"),

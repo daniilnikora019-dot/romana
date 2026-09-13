@@ -602,3 +602,11 @@ canvas{display:block;width:100%}
   .letter-card:active,.chip:active,.tab:active{filter:brightness(.94)}
 }
 button,.cat-card,.letter-card,.wcard,.cat-line,.menu-row,.wrow{-webkit-tap-highlight-color:transparent}
+
+/* пояснение под заголовком раздела и поле для кода резервной копии */
+.set-note{font-size:13px;line-height:1.45;color:var(--muted);margin:0 2px 4px}
+.modal textarea{width:100%;box-sizing:border-box;margin-top:10px;padding:10px 12px;
+  font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text);
+  background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);
+  resize:vertical;word-break:break-all}
+.modal textarea:focus{outline:none;border-color:var(--accent)}
