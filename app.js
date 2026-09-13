@@ -24,7 +24,7 @@ function defaultProgress() {
     streak: 0, best: 0, lastActive: null, onboarded: false,
     set: {
       cats: ['greetings', 'phrases', 'numbers', 'pronouns', 'questions', 'verbs',
-             'adjectives', 'family', 'food', 'time', 'adverbs', 'home'],
+             'adjectives', 'family', 'food', 'time', 'adverbs'],
       levels: ['A1', 'A2', 'B1'],
       voice: 'f', autoplay: true, translit: true, refresh: true,
       speed: 1, invertSwipe: false, reviewScope: 'selected', masterReps: 5,
@@ -2059,10 +2059,14 @@ function openSettings() {
     </div>
 
     <div class="set-sect">Данные</div>
+    <p class="set-note">Прогресс хранится только на этом устройстве. Если удалить значок с экрана
+      «Домой», iOS сотрёт его вместе с приложением — поэтому время от времени сохраняйте копию.</p>
     <div style="display:flex;gap:9px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn ghost sm" id="s-copy">📋 Скопировать код</button>
+      <button class="btn ghost sm" id="s-paste">📥 Восстановить из кода</button>
+      <button class="btn ghost sm" id="s-export">⬇︎ Файлом</button>
+      <button class="btn ghost sm" id="s-import">⬆︎ Из файла</button>
       <button class="btn ghost sm" id="s-check">🔎 Проверить звук</button>
-      <button class="btn ghost sm" id="s-export">⬇︎ Сохранить прогресс</button>
-      <button class="btn ghost sm" id="s-import">⬆︎ Загрузить</button>
       <button class="btn ghost sm" id="s-reset" style="color:var(--clay)">Сбросить всё</button>
     </div>
     <div style="display:flex;margin-top:18px">
@@ -2114,11 +2118,44 @@ function openSettings() {
   };
   $('#s-close', bg).onclick = () => { bg.remove(); render(); };
   bg.onclick = (e) => { if (e.target === bg) { bg.remove(); render(); } };
+  $('#s-copy', bg).onclick = async () => {
+    let code;
+    try { code = await progCode(); }
+    catch (e) { toast('Не удалось собрать код'); return; }
+    try {
+      await navigator.clipboard.writeText(code);
+      toast(`Код скопирован (${Math.round(code.length / 1024)} КБ) — вставьте его в Заметки`);
+    } catch (e) {                                   // буфер недоступен — даём выделить руками
+      showCode(code);
+    }
+  };
+  $('#s-paste', bg).onclick = () => {
+    const w = el(`<div class="modal-bg"><div class="modal">
+      <h2>Восстановить из кода</h2>
+      <p class="set-note">Вставьте сюда код, сохранённый раньше. Текущий прогресс будет заменён.</p>
+      <textarea id="s-code-in" rows="6" placeholder="${CODE_TAG}1..."></textarea>
+      <div style="display:flex;gap:9px;margin-top:14px">
+        <button class="btn ghost sm" id="s-code-cancel">Отмена</button>
+        <button class="btn primary sm" id="s-code-ok" style="margin-left:auto">Восстановить</button>
+      </div>
+    </div></div>`);
+    $('#s-code-cancel', w).onclick = () => w.remove();
+    w.onclick = (e) => { if (e.target === w) w.remove(); };
+    $('#s-code-ok', w).onclick = async () => {
+      try {
+        const p = await fromCode($('#s-code-in', w).value);
+        applyRestored(p);
+        w.remove(); bg.remove(); render(); toast('Прогресс восстановлен');
+      } catch (e) { toast('Код не распознан'); }
+    };
+    document.body.appendChild(w);
+    $('#s-code-in', w).focus();
+  };
   $('#s-export', bg).onclick = () => {
     const blob = new Blob([JSON.stringify(S.prog)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `kartuli-progress-${today()}.json`;
+    a.download = `romana-progress-${today()}.json`;
     a.click();
   };
   $('#s-import', bg).onclick = () => {
@@ -2128,10 +2165,8 @@ function openSettings() {
       const fr = new FileReader();
       fr.onload = () => {
         try {
-          const p = JSON.parse(fr.result);
-          if (!p.w) throw new Error('формат');
-          S.prog = p; S.prog.set = Object.assign(defaultProgress().set, p.set || {});
-          saveProgress(); bg.remove(); render(); toast('Прогресс загружен');
+          applyRestored(JSON.parse(fr.result));
+          bg.remove(); render(); toast('Прогресс загружен');
         } catch (e) { toast('Не удалось прочитать файл'); }
       };
       fr.readAsText(inp.files[0]);
@@ -2143,6 +2178,74 @@ function openSettings() {
     S.prog = defaultProgress(); saveProgress(); bg.remove(); render(); toast('Прогресс сброшен');
   };
   document.body.appendChild(bg);
+}
+
+/* ---------------- резервная копия прогресса ----------------
+   Прогресс живёт в localStorage, а его iOS стирает вместе с веб-приложением,
+   если убрать значок с экрана «Домой». Скачивание файла в standalone-режиме
+   Safari игнорирует, поэтому копия отдаётся текстом: сжимаем JSON и кодируем
+   в base64, чтобы код можно было просто скопировать в Заметки. */
+const CODE_TAG = LS_KEY.slice(0, 2).toUpperCase();
+
+function b64(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s);
+}
+function unb64(str) {
+  const bin = atob(str), out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+async function progCode() {
+  const json = JSON.stringify(S.prog);
+  const raw = new TextEncoder().encode(json);
+  if (!window.CompressionStream) return CODE_TAG + '0' + b64(raw);
+  const packed = await new Response(
+    new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))
+  ).arrayBuffer();
+  return CODE_TAG + '1' + b64(new Uint8Array(packed));
+}
+
+async function fromCode(code) {
+  code = (code || '').replace(/\s+/g, '');
+  const tag = code.slice(0, 2), ver = code[2], body = code.slice(3);
+  if (tag !== CODE_TAG) throw new Error('код от другого приложения');
+  let json;
+  if (ver === '0') json = new TextDecoder().decode(unb64(body));
+  else if (ver === '1') json = await new Response(
+    new Blob([unb64(body)]).stream().pipeThrough(new DecompressionStream('deflate-raw'))
+  ).text();
+  else throw new Error('формат');
+  return JSON.parse(json);
+}
+
+function applyRestored(p) {
+  if (!p || typeof p !== 'object' || !p.w) throw new Error('формат');
+  S.prog = p;
+  S.prog.set = Object.assign(defaultProgress().set, p.set || {});
+  S.prog.w = p.w || {}; S.prog.days = p.days || {};
+  S.session = null;
+  saveProgress();
+}
+
+/* показать код, когда буфер обмена недоступен */
+function showCode(code) {
+  const w = el(`<div class="modal-bg"><div class="modal">
+    <h2>Код прогресса</h2>
+    <p class="set-note">Скопируйте текст целиком и сохраните его, например в Заметках.</p>
+    <textarea id="s-code-out" rows="6" readonly></textarea>
+    <div style="display:flex;margin-top:14px">
+      <button class="btn primary sm" id="s-code-done" style="margin-left:auto">Готово</button>
+    </div>
+  </div></div>`);
+  $('#s-code-out', w).value = code;
+  $('#s-code-done', w).onclick = () => w.remove();
+  w.onclick = (e) => { if (e.target === w) w.remove(); };
+  document.body.appendChild(w);
+  const ta = $('#s-code-out', w);
+  ta.focus(); ta.setSelectionRange(0, code.length);
 }
 
 /* ---------------- оформление ---------------- */
