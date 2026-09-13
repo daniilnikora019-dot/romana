@@ -368,8 +368,6 @@ ROUTES.home = function () {
      а не намерение: взять слово в работу ещё ничего не значит. Повторения в процент не входят,
      их число диктует расписание, а не усердие; они показаны отдельной строкой. */
   const donePct = goalNew ? Math.min(100, Math.round(t.drilled / goalNew * 100)) : 0;
-  const hour = new Date().getHours();
-  const hi = hour < 5 ? 'Доброй ночи' : hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : 'Добрый вечер';
 
   // кружки текущей недели
   const mon = startOfWeek(new Date());
@@ -381,15 +379,6 @@ ROUTES.home = function () {
   });
 
   const box = el(`<div>
-    <div class="page-head">
-      <div><h1>${hi}!</h1>
-        <p class="sub">${S.prog.streak > 0
-          ? `🔥 Серия: ${plural(S.prog.streak, 'день', 'дня', 'дней')} подряд`
-          : 'Начните серию — позанимайтесь сегодня'}</p></div>
-      <div class="page-meta">В работе: <b>${plural(S.prog.set.cats.length, 'категория', 'категории', 'категорий')}</b>
-        · уровни <b>${S.prog.set.levels.join(' ')}</b></div>
-    </div>
-
     <div class="home-grid">
       <div>
         <h2 class="sect">Интервальное повторение</h2>
