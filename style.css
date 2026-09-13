@@ -40,6 +40,7 @@ body{
 }
 /* класс родного письма подключается через L.script в config.js */
 .ka{font-family:"SF Georgian","Noto Sans Georgian",system-ui,sans-serif}
+.hy{font-family:"SF Armenian","Noto Sans Armenian","Mshtakan",system-ui,sans-serif}
 .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 button{font-family:inherit;font-size:inherit;cursor:pointer;border:none;background:none;color:inherit}
 input,select{font-family:inherit;font-size:inherit;color:inherit}
