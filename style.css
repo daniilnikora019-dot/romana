@@ -625,4 +625,4 @@ button,.cat-card,.letter-card,.wcard,.cat-line,.menu-row,.wrow{-webkit-tap-highl
 .ex-toggle.open i{transform:rotate(135deg);margin-top:8px}
 .ex-toggle b{font-weight:680}
 .ex-play{flex:0 0 auto;padding:4px 8px;font-size:16px;line-height:1}
-.ex-ru{grid-column:1 / -1;font-size:14px;color:var(--text-2);padding-left:20px;margin-top:2px}
+.ex-ru{grid-column:1 / -1;font-size:14px;color:var(--text-2);padding-left:20px;margin-top:2px;text-align:left}
