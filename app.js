@@ -526,6 +526,9 @@ function stepBack() {
   if (h.phase === 'drill' && s.pending && s.drill && s.drill[h.i]) s.pending.add(s.drill[h.i].id);
   if (h.right) s.right--;
   if (h.wrong) s.wrong--;
+  if (h.newDone && s.newDone) s.newDone--;
+  if (s.left && h.leftHad !== undefined) h.leftHad ? s.left.add(h.snap.id) : s.left.delete(h.snap.id);
+  if (s.missed && h.missedHad !== undefined) h.missedHad ? s.missed.add(h.snap.id) : s.missed.delete(h.snap.id);
   render();
 }
 
@@ -960,29 +963,37 @@ ROUTES.review = function () {
              : 'Возьмите новые слова — и они появятся здесь на повторение.',
         c.fresh ? 'Учить новые слова' : 'К категориям', () => go(c.fresh ? 'learn' : 'cats'));
     }
-    S.session = { kind: 'review', queue: shuffle(q), i: 0, right: 0, wrong: 0, total: q.length, method: null };
+    // Считаем слова, а не карточки: слово с ошибкой выходит несколько раз,
+    // и «15 из 19» читалось бы как девятнадцать слов, которых не было.
+    S.session = { kind: 'review', queue: shuffle(q), i: 0, right: 0, wrong: 0, total: q.length, method: null,
+                  words: q.length, left: new Set(q.map(w => w.id)), missed: new Set() };
   }
   const s = S.session, w = s.queue[s.i];
   if (!w) {
-    const { right, wrong, total } = s;
+    const words = s.words, missed = s.missed.size;
     S.session = null;
-    return emptyScreen(right === total ? '🏆' : '✅', 'Повторение завершено',
-      `Правильно: ${right} из ${total}${wrong ? ` · с ошибками: ${wrong}` : ''}`,
+    return emptyScreen(missed ? '✅' : '🏆', 'Повторение завершено',
+      `Повторено ${plural(words, 'слово', 'слова', 'слов')}` +
+      (missed ? ` · сразу вспомнили ${words - missed}, с ошибкой ${missed}`
+              : ' — все с первого раза'),
       'Ещё повторять', () => go('review'), 'На главную', () => go('home'));
   }
   const p = wp(w.id);
   const rep = p.r || 0;
   const opts = {
-    title: s.i ? `Повторено ${plural(s.i, 'слово', 'слова', 'слов')} из ${s.total}`
-               : `К повторению: ${plural(s.total, 'слово', 'слова', 'слов')}`,
-    progress: s.i / s.total,
+    title: s.left.size < s.words
+      ? `Повторено ${s.words - s.left.size} из ${plural(s.words, 'слова', 'слов', 'слов')}`
+      : `К повторению: ${plural(s.words, 'слово', 'слова', 'слов')}`,
+    progress: (s.words - s.left.size) / s.words,
     backwards: rep % 2 === 1,            // чередуем: изучаемый→русский, затем русский→изучаемый
     reps: rep,
     onDone: (ok, again) => {
       s.hist = s.hist || [];
-      s.hist.push({ snap: snapshot(w), i: s.i, right: ok, wrong: !ok });
+      s.hist.push({ snap: snapshot(w), i: s.i, right: ok, wrong: !ok,
+                    leftHad: s.left.has(w.id), missedHad: s.missed.has(w.id) });
       const res = answerGrade(w, ok);
       ok ? s.right++ : s.wrong++;
+      ok ? s.left.delete(w.id) : s.missed.add(w.id);
       if (res.s === 'mastered') toast(`🎓 «${w.ka}» выучено полностью!`);
       // Слово не покидает сессию, пока не будет названо верно: иначе повторение
       // заканчивалось с неотработанными ошибками — ровно то же правило, что в
@@ -1019,23 +1030,35 @@ ROUTES.mixed = function () {
       for (let k = 0; k < 3 && R.length; k++) queue.push({ type: 'review', w: R.shift() });
       if (N.length) queue.push({ type: 'new', w: N.shift() });
     }
-    S.session = { kind: 'mixed', queue, i: 0, right: 0, wrong: 0, total: queue.length, hist: [] };
+    S.session = { kind: 'mixed', queue, i: 0, right: 0, wrong: 0, total: queue.length, hist: [],
+                  newWords: fresh.length, words: due.length, newDone: 0,
+                  left: new Set(due.map(w => w.id)), missed: new Set() };
   }
   const s = S.session, item = s.queue[s.i];
   if (!item) {
-    const { right, wrong, total } = s;
+    const { newWords, words, missed } = { ...s, missed: s.missed.size };
     S.session = null;
     return emptyScreen('✅', 'Занятие завершено',
-      `Пройдено карточек: ${total}${right + wrong ? ` · верных ответов: ${right} из ${right + wrong}` : ''}`,
+      (() => {
+        const parts = [newWords ? `новых слов: ${newWords}` : '',
+                       words ? `повторено: ${plural(words, 'слово', 'слова', 'слов')}` : '',
+                       missed ? `с ошибкой: ${missed}` : ''].filter(Boolean).join(' · ');
+        return parts.charAt(0).toUpperCase() + parts.slice(1);
+      })(),
       'Ещё', () => go('mixed'), 'На главную', () => go('home'));
   }
   const w = item.w;
-  const head = { progress: s.i / s.total, title: `Карточка ${s.i + 1} из ${s.total}` };
+  // прогресс по словам: карточек больше, чем слов, — слово с ошибкой выходит снова
+  const allWords = s.newWords + s.words;
+  const doneWords = s.newDone + (s.words - s.left.size);
+  const head = { progress: allWords ? doneWords / allWords : 0,
+                 title: `Пройдено ${doneWords} из ${plural(allWords, 'слова', 'слов', 'слов')}` };
   if (item.type === 'new') {
     return newWordCard(w, Object.assign({}, head, {
       onPick: (a) => {
-        s.hist.push({ snap: snapshot(w), i: s.i });
+        s.hist.push({ snap: snapshot(w), i: s.i, newDone: true });
         applyNewWordChoice(w, a);
+        s.newDone++;
         s.i++; render();
       },
     }));
@@ -1044,9 +1067,11 @@ ROUTES.mixed = function () {
   return exerciseReview(w, Object.assign({}, head, {
     reps: rep, backwards: rep % 2 === 1, mastered: p.s === 'mastered',
     onDone: (ok, again) => {
-      s.hist.push({ snap: snapshot(w), i: s.i, right: ok, wrong: !ok });
+      s.hist.push({ snap: snapshot(w), i: s.i, right: ok, wrong: !ok,
+                    leftHad: s.left.has(w.id), missedHad: s.missed.has(w.id) });
       const res = answerGrade(w, ok);
       ok ? s.right++ : s.wrong++;
+      ok ? s.left.delete(w.id) : s.missed.add(w.id);
       if (res.s === 'mastered') toast(`🎓 «${w.ka}» выучено полностью!`);
       if (!ok || again) { s.queue.push({ type: 'review', w }); s.total++; }
       s.i++; render();
