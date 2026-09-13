@@ -630,6 +630,29 @@ function bindMnemo(root, w) {
 }
 function hasMnemo(w) { return !!(S.mnemo || {})[w.ka]; }
 
+/* Перевод под глазком. Карточка должна сперва дать шанс вспомнить слово самому:
+   если перевод виден сразу, проверки знания не получается — глаз читает его раньше,
+   чем успеваешь вспомнить. Тот же приём, что кнопка 👁 в режиме повторения. */
+function revealHTML(text, label = 'Показать перевод') {
+  return `<div class="reveal">
+    <button class="btn ghost sm reveal-btn">👁 ${label}</button>
+    <div class="word-ru reveal-text" hidden>${esc(text)}</div>
+  </div>`;
+}
+function bindReveal(root, after) {
+  const btn = root.querySelector('.reveal-btn');
+  if (!btn) return () => {};
+  const open = () => {
+    if (btn.hidden) return;
+    btn.hidden = true;
+    root.querySelector('.reveal-text').hidden = false;
+    if (after) after();
+  };
+  btn.onclick = open;
+  return open;
+}
+
+
 function bindSpeak(root, text) {
   const b = root.querySelector('.speak');
   if (b) b.onclick = () => speak(text);
@@ -779,19 +802,21 @@ function newWordCard(w, o) {
       <div class="word-ka ka">${esc(w.ka)}</div>
       ${S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
       <button class="speak" title="Произношение (пробел)">🔊</button>
-      <div class="word-ru">${esc(w.ru)}</div>
+      ${revealHTML(w.ru)}
       ${mnemoHTML()}
       <div class="grade-row">
         <button data-a="known"><b>Уже знаю</b><span>больше не показывать</span></button>
         <button data-a="learn"><b>Учить это слово</b><span>вернётся на повторение</span></button>
       </div>
     </div>
-    <p class="hint">Смахните карточку: влево — уже знаю, <b>вправо — учить</b> ·
-      <kbd>1</kbd> / <kbd>2</kbd> с клавиатуры · <kbd>пробел</kbd> — послушать</p>
+    <p class="hint">Сначала вспомните перевод сами, потом откройте 👁 ·
+      смахните: влево — уже знаю, <b>вправо — учить</b> ·
+      <kbd>1</kbd> / <kbd>2</kbd> · <kbd>Enter</kbd> — показать · <kbd>пробел</kbd> — послушать</p>
   </div>`);
   bindSpeak(box, w.ka);
   bindMnemo(box, w);
   bindBack(box);
+  const reveal = bindReveal(box);
   if (S.prog.set.autoplay) setTimeout(() => speak(w.ka), 180);
   let used = false;
   const act = (a) => { if (used) return; used = true; o.onPick(a); };
@@ -804,6 +829,7 @@ function newWordCard(w, o) {
   S.session.keys = (e) => {
     if (e.key === '1') act('known');
     else if (e.key === '2') act('learn');
+    else if (e.key === 'Enter') { e.preventDefault(); reveal(); }
     else if (e.key === 'Backspace') { e.preventDefault(); stepBack(); }
     else if (e.code === 'Space') { e.preventDefault(); speak(w.ka); }
   };
@@ -968,17 +994,19 @@ ROUTES.browse = function () {
       <div class="word-ka ka">${esc(w.ka)}</div>
       ${S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
       <button class="speak lg" title="Произношение">🔊</button>
-      <div class="word-ru">${esc(w.ru)}</div>
+      ${revealHTML(w.ru)}
       ${mnemoHTML()}
     </div>
     <div class="answer-actions">
       <button class="btn ghost" data-a="prev">← Назад</button>
       <button class="btn primary" data-a="next">Дальше →</button>
     </div>
-    <p class="hint">Режим просмотра: на статистику и прогресс не влияет · <kbd>пробел</kbd> — послушать</p>
+    <p class="hint">Режим просмотра: на статистику и прогресс не влияет ·
+      <kbd>Enter</kbd> — показать перевод · <kbd>пробел</kbd> — послушать</p>
   </div>`);
   bindSpeak(box, w.ka);
   bindMnemo(box, w);
+  const revealBrowse = bindReveal(box);
   if (S.prog.set.autoplay) setTimeout(() => speak(w.ka), 180);
   const step = (d) => { s.i = Math.max(0, s.i + d); render(); };
   box.querySelector('[data-a=next]').onclick = () => step(1);
@@ -988,7 +1016,8 @@ ROUTES.browse = function () {
     onRight: () => step(1), onLeft: () => step(-1),
   });
   S.session.keys = (e) => {
-    if (e.key === 'ArrowRight' || e.key === 'Enter') step(1);
+    if (e.key === 'Enter') { e.preventDefault(); revealBrowse(); }
+    else if (e.key === 'ArrowRight') step(1);
     else if (e.key === 'ArrowLeft') step(-1);
     else if (e.code === 'Space') { e.preventDefault(); speak(w.ka); }
   };
