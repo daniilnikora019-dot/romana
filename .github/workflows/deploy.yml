@@ -28,9 +28,12 @@ jobs:
       - name: Собрать сайт
         run: |
           mkdir -p _site
-          cp index.html style.css app.js sw.js manifest.json robots.txt .nojekyll _site/
+          cp index.html style.css app.js config.js sw.js manifest.json robots.txt .nojekyll _site/
           cp -r icons data audio _site/
           echo "файлов в сборке: $(find _site -type f | wc -l)"
+
+      - name: Проверить, что в сборку попало всё, что запрашивает страница
+        run: python3 tools/check_site.py _site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
