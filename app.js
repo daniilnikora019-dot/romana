@@ -63,8 +63,9 @@ function wp(id) {                                   // состояние сло
 function setWp(id, v) { S.prog.w[id] = v; saveProgress(); }
 
 function dayRec(d) {
-  if (!S.prog.days[d]) S.prog.days[d] = { rev: 0, new: 0, known: 0, started: 0 };
+  if (!S.prog.days[d]) S.prog.days[d] = { rev: 0, new: 0, known: 0, started: 0, drilled: 0 };
   if (S.prog.days[d].started === undefined) S.prog.days[d].started = 0;
+  if (S.prog.days[d].drilled === undefined) S.prog.days[d].drilled = 0;
   return S.prog.days[d];
 }
 /* сколько новых слов ещё осталось до дневной нормы */
@@ -341,10 +342,10 @@ ROUTES.welcome = function () {
 ROUTES.home = function () {
   const c = counts(), t = dayRec(today());
   const goalNew = S.prog.set.newPerDay;
-  /* Счётчик цели считается только по новым словам: сколько взято в изучение из дневной нормы.
-     Повторения в процент не входят — их число диктует расписание, а не усердие, и «половина
-     выполнена» на пустом месте только сбивала с толку. Они показаны отдельной строкой. */
-  const donePct = goalNew ? Math.min(100, Math.round(t.started / goalNew * 100)) : 0;
+  /* В цель дня идут новые слова, впервые названные верно в закреплении, — то есть результат,
+     а не намерение: взять слово в работу ещё ничего не значит. Повторения в процент не входят,
+     их число диктует расписание, а не усердие; они показаны отдельной строкой. */
+  const donePct = goalNew ? Math.min(100, Math.round(t.drilled / goalNew * 100)) : 0;
   const hour = new Date().getHours();
   const hi = hour < 5 ? 'Доброй ночи' : hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : 'Добрый вечер';
 
@@ -412,11 +413,11 @@ ROUTES.home = function () {
                   stroke-dasharray="${(2 * Math.PI * 45).toFixed(1)}"
                   stroke-dashoffset="${(2 * Math.PI * 45 * (1 - donePct / 100)).toFixed(1)}"/>
               </svg>
-              <div class="val" title="Половина цели — новые слова, половина — повторения на сегодня">
+              <div class="val" title="В цель идёт новое слово, впервые названное верно в закреплении. Повторения показаны отдельной строкой">
                 <b class="num">${donePct}%</b><span>цель дня</span></div>
             </div>
             <div class="goal-list">
-              <div class="goal-row"><span>Новых слов взято</span><b>${t.started} / ${goalNew}</b></div>
+              <div class="goal-row"><span>Новых слов закреплено</span><b>${t.drilled} / ${goalNew}</b></div>
               <div class="goal-row"><span>Выучено полностью сегодня</span><b>${t.new}</b></div>
               <div class="goal-row"><span>Повторено сегодня</span>
                 <b>${t.rev}${c.due ? ` · ждёт ${c.due}` : ''}</b></div>
@@ -447,10 +448,10 @@ ROUTES.home = function () {
 
     <div class="chart-card">
       <h3>Активность за 14 дней</h3>
-      <p class="cap">Взято новых, повторено уникальных и выучено полностью · листается вбок</p>
+      <p class="cap">Закреплено новых, повторено уникальных и выучено полностью · листается вбок</p>
       <div class="chart-scroll"><canvas id="home-chart" height="158"></canvas></div>
       <div class="legend">
-        <span><i class="dot" style="background:var(--gold)"></i>взято новых</span>
+        <span><i class="dot" style="background:var(--gold)"></i>закреплено новых</span>
         <span><i class="dot" style="background:var(--accent)"></i>повторено</span>
         <span><i class="dot" style="background:var(--green)"></i>выучено полностью</span>
       </div>
@@ -829,7 +830,12 @@ function learnDrill() {
     onDone: (ok, again) => {
       s.hist = s.hist || [];
       s.hist.push({ snap: snapshot(w), i: s.i, phase: 'drill' });
-      answerGrade(w, ok);
+      const was = wp(w.id).r || 0;
+      const res = answerGrade(w, ok);
+      // Слово идёт в зачёт дня, когда впервые названо верно здесь, в закреплении.
+      // Смахнуть «учить» — ещё не результат, поэтому взятые слова считаются отдельно:
+      // по ним определяется размер порции, иначе брошенная сессия дала бы взять сверх нормы.
+      if (ok && was === 0 && res.r === 1) dayRec(today()).drilled++;
       // закрепление не заканчивается, пока каждое слово не будет названо верно
       if (ok) s.pending.delete(w.id); else s.drill.push(w);
       if (again && ok) { s.drill.push(w); s.pending.add(w.id); }
@@ -1707,7 +1713,7 @@ function lastDays(n) {
   const out = [];
   for (let i = n - 1; i >= 0; i--) {
     const d = dateKey(new Date(Date.now() - i * 864e5));
-    out.push({ date: d, ...(S.prog.days[d] || { rev: 0, new: 0, known: 0, started: 0 }) });
+    out.push({ date: d, ...(S.prog.days[d] || { rev: 0, new: 0, known: 0, started: 0, drilled: 0 }) });
   }
   return out;
 }
@@ -1716,7 +1722,7 @@ function lastDays(n) {
    Считает всю активность целиком — по всем категориям и уровням без исключения. */
 function statsBuckets(scale, count) {
   const buckets = [], now = new Date();
-  const push = (key, label, full) => buckets.push({ key, label, full, rev: 0, new: 0, known: 0, started: 0 });
+  const push = (key, label, full) => buckets.push({ key, label, full, rev: 0, new: 0, known: 0, started: 0, drilled: 0 });
   const dm = (d) => `${d.getDate()}.${String(d.getMonth() + 1).padStart(2, '0')}`;
   if (scale === 'week') {
     const s0 = startOfWeek(now);
@@ -1749,33 +1755,16 @@ function statsBuckets(scale, count) {
     else if (scale === 'month') key = date.slice(0, 7);
     else if (scale === 'year') key = date.slice(0, 4);
     const b = index.get(key);
-    if (b) { b.rev += rec.rev || 0; b.new += rec.new || 0; b.known += rec.known || 0; b.started += rec.started || 0; }
+    if (b) {
+      b.rev += rec.rev || 0; b.new += rec.new || 0; b.known += rec.known || 0; b.started += rec.started || 0;
+      // у дней до появления счётчика закреплённых берём взятые — иначе старая история обнулилась бы
+      b.drilled += rec.drilled === undefined ? (rec.started || 0) : rec.drilled;
+    }
   }
   return buckets;
 }
 
 /* всплывающая подсказка над графиком */
-function chartTooltip(cv, zones, onHover) {
-  const wrap = cv.parentElement;
-  if (!wrap.classList.contains('chart-wrap')) wrap.classList.add('chart-wrap');
-  let tip = wrap.querySelector('.chart-tip');
-  if (!tip) { tip = el('<div class="chart-tip" hidden></div>'); wrap.appendChild(tip); }
-  let last = null;
-  cv.onmousemove = (e) => {
-    const r = cv.getBoundingClientRect(), x = e.clientX - r.left;
-    const z = zones.find(z => x >= z.x0 && x <= z.x1);
-    if (!z) { if (last !== null) { last = null; tip.hidden = true; onHover && onHover(null); } return; }
-    tip.hidden = false;
-    tip.innerHTML = z.html;
-    const tw = tip.offsetWidth;
-    tip.style.left = Math.max(2, Math.min(r.width - tw - 2, z.cx - tw / 2)) + 'px';
-    tip.style.top = Math.max(18, z.top - 6) + 'px';
-    if (last !== z.i) { last = z.i; onHover && onHover(z.i); }
-  };
-  cv.onmouseleave = () => { tip.hidden = true; last = null; onHover && onHover(null); };
-  cv.style.cursor = 'crosshair';
-}
-
 /* равномерные подписи оси: столько, сколько помещается без наложения */
 function axisLabels(c, buckets, pad, w, h, xOf) {
   const fit = Math.max(2, Math.floor((w - pad.l - pad.r) / 46));
@@ -1789,17 +1778,29 @@ function axisLabels(c, buckets, pad, w, h, xOf) {
   c.textAlign = 'start';
 }
 
-function drawActivity(cv, buckets, hover) {
+/* контрастный цвет для числа поверх столбца: на светлой заливке — тёмный, на тёмной — белый */
+function onBarColor(hex) {
+  const m = String(hex).trim().match(/^#([\da-f]{6})$/i);
+  if (!m) return '#fff';
+  const n = parseInt(m[1], 16);
+  const lum = (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255;
+  return lum > 0.6 ? '#16201e' : '#fff';
+}
+
+/* Столбчатый график активности. Без всплывающих подсказок: на телефоне они
+   срабатывали от случайного касания и закрывали сам график, поэтому число
+   пишется прямо в столбце, а если столбец слишком низкий — над ним. */
+function drawActivity(cv, buckets) {
   if (!cv) return;
   const wrap = cv.parentElement;
-  const MIN_GROUP = 46;                    // ширина группы столбцов, при которой всё читается
+  const MIN_GROUP = 76;                    // ширина группы столбцов: числа должны помещаться внутрь
   if (wrap && wrap.classList.contains('chart-scroll')) {
     const need = buckets.length * MIN_GROUP + 44;
     cv.style.width = Math.max(wrap.clientWidth, need) + 'px';
   }
   const { c, w, h } = prepCanvas(cv, 158);
   const pad = { l: 34, r: 10, t: 20, b: 22 };
-  const max = Math.max(4, ...buckets.map(d => Math.max(d.started, d.rev, d.new)));
+  const max = Math.max(4, ...buckets.map(d => Math.max(d.drilled, d.rev, d.new)));
   const bw = (w - pad.l - pad.r) / buckets.length;
   const ih = h - pad.t - pad.b;
   c.strokeStyle = css('--line'); c.lineWidth = 1;
@@ -1809,53 +1810,51 @@ function drawActivity(cv, buckets, hover) {
     c.beginPath(); c.moveTo(pad.l, y); c.lineTo(w - pad.r, y); c.stroke();
     c.fillText(String(Math.round(max * (1 - i / 3))), 4, y + 3);
   }
-  const zones = [];
   buckets.forEach((d, i) => {
     const x = pad.l + i * bw;
-    if (hover === i) { c.fillStyle = css('--surface-2'); c.fillRect(x, pad.t, bw, ih); }
-    const bar = (val, color, off, wd) => {
+    const gap = Math.min(bw * 0.08, 5);
+    const barW = Math.max(3, (bw - gap * 4) / 3);
+    const draw = (val, color, off) => {
       const bh = ih * (val / max);
       c.fillStyle = color;
-      c.beginPath(); c.roundRect(x + off, h - pad.b - bh, wd, Math.max(bh, val ? 2 : 0), 3); c.fill();
-    };
-    // три серии: взято новых, повторено, выучено полностью
-    const gap = Math.min(bw * 0.1, 4);
-    const barW = Math.max(2, (bw - gap * 4) / 3);
-    bar(d.started, css('--gold'), gap, barW);
-    bar(d.rev, css('--accent'), gap * 2 + barW, barW);
-    bar(d.new, css('--green'), gap * 3 + barW * 2, barW);
-    if (bw > 40) {                                   // подписи, когда столбцы не жмутся
-      c.font = '9.5px system-ui'; c.textAlign = 'center';
-      const label = (val, color, cx) => {
-        if (!val) return;
-        c.fillStyle = color;
-        c.fillText(String(val), cx, h - pad.b - ih * (val / max) - 4);
-      };
-      label(d.started, css('--gold'), x + gap + barW / 2);
-      label(d.rev, css('--accent'), x + gap * 2 + barW * 1.5);
-      label(d.new, css('--green'), x + gap * 3 + barW * 2.5);
+      c.beginPath();
+      c.roundRect(x + off, h - pad.b - bh, barW, Math.max(bh, val ? 2 : 0), 3);
+      c.fill();
+      if (!val) return;
+      const txt = String(val);
+      c.textAlign = 'center';
+      const cx = x + off + barW / 2;
+      // подбираем кегль, чтобы трёхзначное число тоже поместилось внутрь столбца
+      let size = 0;
+      for (const px of [10, 9, 8]) {
+        c.font = `600 ${px}px system-ui`;
+        if (c.measureText(txt).width <= barW - 3) { size = px; break; }
+      }
+      if (size && bh >= size + 6) {
+        c.font = `600 ${size}px system-ui`;
+        c.fillStyle = onBarColor(color);                 // число внутри столбца
+        c.fillText(txt, cx, h - pad.b - bh / 2 + size / 2 - 1);
+      } else {
+        c.fillStyle = color;                             // столбец слишком мал — подписываем сверху
+        c.font = '9.5px system-ui';
+        c.fillText(txt, cx, h - pad.b - bh - 4);
+      }
       c.textAlign = 'start';
-    }
-    zones.push({
-      i, x0: x, x1: x + bw, cx: x + bw / 2,
-      top: h - pad.b - ih * (Math.max(d.started, d.rev, d.new) / max),
-      html: `<b>${d.full}</b>` +
-            `<br><i style="background:${css('--gold')}"></i>взято новых: ${d.started}` +
-            `<br><i style="background:${css('--accent')}"></i>повторено: ${d.rev}` +
-            `<br><i style="background:${css('--green')}"></i>выучено полностью: ${d.new}` +
-            (d.known ? `<br><i style="background:${css('--slate')}"></i>отмечено «знаю»: ${d.known}` : ''),
-    });
+    };
+    // три серии: закреплено новых, повторено, выучено полностью
+    draw(d.drilled, css('--gold'), gap);
+    draw(d.rev, css('--accent'), gap * 2 + barW);
+    draw(d.new, css('--green'), gap * 3 + barW * 2);
   });
   axisLabels(c, buckets, pad, w, h, (i) => pad.l + i * bw + bw / 2);
-  chartTooltip(cv, zones, (i) => { if (i !== hover) drawActivity(cv, buckets, i); });
   // при первой отрисовке показываем свежие дни — правый край
-  if (hover == null && wrap && wrap.classList.contains('chart-scroll') && !wrap.dataset.scrolled) {
+  if (wrap && wrap.classList.contains('chart-scroll') && !wrap.dataset.scrolled) {
     wrap.scrollLeft = wrap.scrollWidth;
     wrap.dataset.scrolled = '1';
   }
 }
 
-function drawCumulative(cv, buckets, hover) {
+function drawCumulative(cv, buckets) {
   if (!cv) return;
   const { c, w, h } = prepCanvas(cv, 178);
   const pad = { l: 38, r: 10, t: 14, b: 22 };
@@ -1879,21 +1878,14 @@ function drawCumulative(cv, buckets, hover) {
   c.beginPath(); c.moveTo(pts[0].x, y(pts[0].v));
   pts.forEach(p => c.lineTo(p.x, y(p.v)));
   c.strokeStyle = css('--accent'); c.lineWidth = 2; c.stroke();
-  if (hover != null && pts[hover]) {
-    const p = pts[hover];
-    c.strokeStyle = css('--line-strong'); c.lineWidth = 1;
-    c.beginPath(); c.moveTo(p.x, pad.t); c.lineTo(p.x, h - pad.b); c.stroke();
-    c.fillStyle = css('--accent');
-    c.beginPath(); c.arc(p.x, y(p.v), 4, 0, 7); c.fill();
-    c.strokeStyle = css('--surface'); c.lineWidth = 2; c.stroke();
-  }
   axisLabels(c, buckets, pad, w, h, xOf);
-  const half = (pts.length > 1 ? (pts[1].x - pts[0].x) : 12) / 2;
-  const zones = pts.map((p, i) => ({
-    i, x0: p.x - half, x1: p.x + half, cx: p.x, top: y(p.v),
-    html: `<b>${p.b.full}</b><br>всего выучено: ${p.v}` + (p.b.new ? `<br>за период: +${p.b.new}` : ''),
-  }));
-  chartTooltip(cv, zones, (i) => { if (i !== hover) drawCumulative(cv, buckets, i); });
+  // итог на конце линии вместо всплывающей подсказки
+  const last = pts[pts.length - 1];
+  c.fillStyle = css('--accent');
+  c.beginPath(); c.arc(last.x, y(last.v), 3.5, 0, 7); c.fill();
+  c.font = '600 11px system-ui'; c.textAlign = 'end';
+  c.fillText(String(last.v), Math.min(last.x + 22, w - 4), Math.max(pad.t + 9, y(last.v) - 8));
+  c.textAlign = 'start';
 }
 
 /* ---------------- статистика ---------------- */
@@ -1964,7 +1956,7 @@ ROUTES.stats = function () {
         <div class="mrow mhead"><span class="mtot">Всего</span><span class="mper">${periodLabel.replace('за ', '')}</span><span></span><span></span></div>
         ${legendRow('var(--green)', 'Полностью выучено', c.mastered, sum('new'))}
         ${legendRow('var(--accent)', 'Повторено (уникальных)', '—', sum('rev'))}
-        ${legendRow('var(--gold)', 'Взято новых слов', totalStarted, sum('started'))}
+        ${legendRow('var(--gold)', 'Закреплено новых слов', totalStarted, sum('drilled'))}
         ${legendRow('var(--slate)', 'Уже известные', c.known, sum('known'))}
       </div>
     </div>
