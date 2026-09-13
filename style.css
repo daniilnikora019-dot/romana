@@ -1,4 +1,4 @@
-/* ქართული — оформление.
+/* Тренажёр языка — оформление.
    Гамма: тёплая нейтральная база, один основной акцент (глубокий тил),
    поддерживающие — охра и приглушённая зелень. Никакой пестроты. */
 :root{
@@ -38,6 +38,7 @@ body{
   font-family:system-ui,-apple-system,"SF Pro Text","Helvetica Neue",sans-serif;
   -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
 }
+/* класс родного письма подключается через L.script в config.js */
 .ka{font-family:"SF Georgian","Noto Sans Georgian",system-ui,sans-serif}
 .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 button{font-family:inherit;font-size:inherit;cursor:pointer;border:none;background:none;color:inherit}

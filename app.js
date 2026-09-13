@@ -1,7 +1,8 @@
-/* Română — тренажёр румынского. Данные: data/*.json, озвучка: audio/<voice>/<hash>.mp3 */
+/* Тренажёр языка. Язык задаётся в config.js, данные: data/*.json, озвучка: audio/<voice>/<hash>.mp3 */
 'use strict';
 
-const LS_KEY = 'romana_progress_v1';
+const LS_KEY = `${L.key}_progress_v1`;
+const THEME_KEY = `${L.key}_theme`;
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
 // интервалы SRS: после 5-го верного ответа слово считается выученным
 const STEPS = [10 * 60e3, 6 * 3600e3, 24 * 3600e3, 3 * 864e5, 7 * 864e5];
@@ -213,7 +214,7 @@ ROUTES.menu = function () {
         <span class="ma">›</span></button>
       <button class="menu-row" data-go="alphabet">
         <span class="mi gold">🔤</span>
-        <span class="mt"><b>Алфавит</b><i>31 буква с озвучкой и тренажёром</i></span>
+        <span class="mt"><b>Алфавит</b><i>${L.alphabet.menu}</i></span>
         <span class="ma">›</span></button>
     </div>
 
@@ -234,7 +235,7 @@ ROUTES.menu = function () {
     </div>
 
     <p class="sub" style="margin-top:20px;text-align:center">
-      Словарь: ${S.words.length} лексем, ${S.trainable.length} в тренировках · озвучка Microsoft ro-RO
+      Словарь: ${S.words.length} лексем, ${S.trainable.length} в тренировках · озвучка Microsoft ${L.ttsTag}
     </p>
   </div>`);
   $$('[data-go]', box).forEach(b => b.onclick = () => go(b.dataset.go));
@@ -247,7 +248,7 @@ ROUTES.menu = function () {
   box.querySelector('#m-theme').onclick = () => {
     const order = ['system', 'dark', 'light'];
     const next = order[(order.indexOf(themePref()) + 1) % order.length];
-    localStorage.setItem('romana_theme', next);
+    localStorage.setItem(THEME_KEY, next);
     applyTheme(); render();
   };
   return box;
@@ -275,15 +276,12 @@ ROUTES.about = function () {
       <p class="sub" style="margin-bottom:14px">Уровни A1–C1 расставлены по тому, насколько часто слово
       встречается в живом языке. Использованы корпуса
       <a href="https://wortschatz.uni-leipzig.de" target="_blank" rel="noopener">Leipzig Corpora Collection</a>
-      (румынские новости и Википедия).</p>
+      ${L.about.corpus}</p>
 
-      <h2>Произношение</h2>
-      <p class="sub" style="margin-bottom:14px">Озвучка — синтез Microsoft Neural, голоса ro-RO
-      (Алина и Эмиль). Под каждым словом даётся русская транскрипция, собранная по правилам
-      румынского чтения.</p>
+      ${L.about.tts}
 
       <h2>Проверка</h2>
-      <p class="sub">Написание сверено с корпусами и Викисловарём, словоформы и узкие термины отсеяны.</p>
+      <p class="sub">${L.about.check}</p>
     </div>
   </div>`);
   bindSubHead(box);
@@ -307,7 +305,7 @@ ROUTES.welcome = function () {
   };
   const box = el(`<div class="trainer" style="max-width:720px">
     <div style="text-align:center;margin-bottom:26px">
-      <div style="font-size:46px">Română</div>
+      <div style="font-size:46px" class="${L.script}">${L.name}</div>
       <h1 style="margin:10px 0 6px">Сколько новых слов учить в день?</h1>
       <p class="sub">В словаре ${total} слов и выражений с озвучкой. Норму можно поменять в любой момент в настройках.</p>
     </div>
@@ -821,12 +819,12 @@ function learnDrill() {
       `Взято в изучение: ${plural(n, 'слово', 'слова', 'слов')}. Они вернутся на повторение по расписанию.`,
       'Следующая порция', () => { go('learn'); }, 'На главную', () => go('home'));
   }
-  // чередуем направления: румынский → русский, затем русский → румынский
+  // чередуем направления: изучаемый → русский, затем русский → изучаемый
   const mode = s.i % 2 === 0 ? 'ka2ru' : 'ru2ka';
   const left = s.pending.size;
   return exerciseChoice(w, mode, {
     title: `Закрепление · осталось ${plural(left, 'слово', 'слова', 'слов')} · ` +
-           `${mode === 'ka2ru' ? 'выберите перевод' : 'выберите слово по-румынски'}`,
+           `${mode === 'ka2ru' ? 'выберите перевод' : L.ask.choice}`,
     progress: (s.drill.length - left) / s.drill.length,
     onDone: (ok, again) => {
       s.hist = s.hist || [];
@@ -870,7 +868,7 @@ ROUTES.review = function () {
     title: s.i ? `Повторено ${plural(s.i, 'слово', 'слова', 'слов')} из ${s.total}`
                : `К повторению: ${plural(s.total, 'слово', 'слова', 'слов')}`,
     progress: s.i / s.total,
-    backwards: rep % 2 === 1,            // чередуем: румынский→русский, затем русский→румынский
+    backwards: rep % 2 === 1,            // чередуем: изучаемый→русский, затем русский→изучаемый
     reps: rep,
     onDone: (ok, again) => {
       s.hist = s.hist || [];
@@ -1012,7 +1010,7 @@ function exerciseChoice(w, mode, o) {
       ? `<div class="word-card"><span class="lvl">${w.lvl}</span>
            <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span>
            <div class="word-ka" style="font-size:30px">${esc(w.ru)}</div>
-           <div class="word-tr">выберите перевод на румынском</div></div>`
+           <div class="word-tr">${L.ask.choiceTr}</div></div>`
       : wordCardHTML(w, {});
   const box = el(`<div class="trainer">
     ${trainerHead(o)}
@@ -1055,10 +1053,10 @@ function exerciseChoice(w, mode, o) {
 
 /* ---------------- упражнение: вспомнил / не вспомнил ---------------- */
 function exerciseRecall(w, o) {
-  const backwards = o.backwards;                       // true: показываем русский, вспоминаем румынский
+  const backwards = o.backwards;                       // true: показываем русский, вспоминаем изучаемый
   const front = backwards
     ? `<div class="word-ka" style="font-size:30px">${esc(w.ru)}</div>
-       <div class="word-tr">вспомните слово по-румынски</div>`
+       <div class="word-tr">${L.ask.recall}</div>`
     : `<div class="word-ka ka">${esc(w.ka)}</div>
        ${S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}`;
   const box = el(`<div class="trainer">
@@ -1137,7 +1135,7 @@ function exerciseTyping(w, o) {
       <span class="lvl">${w.lvl}</span>
       <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span>
       <div class="word-ka" style="font-size:27px">${esc(w.ru)}</div>
-      <div class="word-tr">напишите по-румынски</div>
+      <div class="word-tr">${L.ask.type}</div>
       <button class="speak lg" title="Произношение">🔊</button>
       <div class="typing">
         <input type="text" id="ans" autocomplete="off" autocorrect="off" autocapitalize="off"
@@ -1150,7 +1148,7 @@ function exerciseTyping(w, o) {
       <button class="btn ghost" data-a="skip">Не помню</button>
       <button class="btn primary" data-a="check">Проверить</button>
     </div>
-    <p class="hint">Принимается и румынское написание, и латиница · <kbd>Enter</kbd> — проверить</p>
+    <p class="hint">${L.ask.typeHint}</p>
   </div>`);
   bindSpeak(box, w.ka);
   const input = $('#ans', box), verdict = $('.typing-verdict', box);
@@ -1190,7 +1188,7 @@ function exerciseTyping(w, o) {
    и две оценки внизу. Свайп вправо — вспомнил, влево — нет. */
 function exerciseReview(w, o) {
   const backwards = o.backwards;
-  const askKa = !backwards;                       // показываем румынское, вспоминаем перевод
+  const askKa = !backwards;                       // показываем изучаемое слово, вспоминаем перевод
   const front = askKa ? w.ka : w.ru;
   const answer = askKa ? w.ru : w.ka;
   const repNo = (o.reps || 0) + 1;
@@ -1246,7 +1244,7 @@ function exerciseReview(w, o) {
     zone.dataset.mode = 'type'; zone.hidden = false;
     zone.innerHTML = `<div class="typing">
       <input type="text" id="ans" autocomplete="off" autocorrect="off" autocapitalize="off"
-             spellcheck="false" placeholder="${askKa ? 'перевод по-русски' : 'по-румынски'}">
+             spellcheck="false" placeholder="${askKa ? 'перевод по-русски' : L.ask.placeholder}">
       <button class="btn primary sm" id="check">Проверить</button>
     </div>`;
     const input = $('#ans', zone);
@@ -1615,15 +1613,13 @@ ROUTES.dictcat = function () {
 ROUTES.alphabet = function () {
   if (S.alphaQuiz) return alphabetQuiz();
   const box = el(`<div>
-    ${subHead('Румынский алфавит', 'menu')}
+    ${subHead(L.alphabet.title, 'menu')}
     <div class="page-head">
-      <div><p class="sub">31 буква. Нажмите на карточку, чтобы услышать букву</p></div>
+      <div><p class="sub">${L.alphabet.lead}</p></div>
       <button class="btn primary" id="a-quiz">🎯 Тренировка букв</button>
     </div>
     <div class="card" style="margin-bottom:16px;font-size:13.5px;line-height:1.6;color:var(--muted)">
-      Румынская орфография почти фонетическая: слова читаются так, как пишутся. Главное — запомнить
-      пять особых букв: ă (нейтральное «э»), â и î (звук «ы»), ș («ш») и ț («ц»). Ещё c и g перед e и i
-      читаются как «ч» и «дж», а ch и gh — как твёрдые «к» и «г».
+      ${L.alphabet.note}
     </div>
     <div class="alpha-grid">${S.alphabet.map((a, i) => `
       <div class="letter-card" data-i="${i}">
@@ -2019,7 +2015,7 @@ function openSettings() {
         <option value="system" ${themePref() === 'system' ? 'selected' : ''}>Как в системе</option>
         <option value="dark" ${themePref() === 'dark' ? 'selected' : ''}>Тёмная</option>
         <option value="light" ${themePref() === 'light' ? 'selected' : ''}>Светлая</option></select>`)}
-      ${row('Показывать транслитерацию', 'Русская транскрипция под румынским словом', `<span data-sw="translit">${sw(st.translit)}</span>`)}
+      ${row('Показывать транслитерацию', L.translitNote, `<span data-sw="translit">${sw(st.translit)}</span>`)}
     </div>
 
     <div class="set-sect">Изучение слов</div>
@@ -2049,9 +2045,9 @@ function openSettings() {
 
     <div class="set-sect">Произношение</div>
     <div class="set-group">
-      ${row('Голос', 'Microsoft Neural, румынский (ro-RO)', `<select id="s-voice">
-        <option value="f" ${st.voice === 'f' ? 'selected' : ''}>Алина (женский)</option>
-        <option value="m" ${st.voice === 'm' ? 'selected' : ''}>Эмиль (мужской)</option></select>`)}
+      ${row('Голос', L.voice.note, `<select id="s-voice">
+        <option value="f" ${st.voice === 'f' ? 'selected' : ''}>${L.voice.f}</option>
+        <option value="m" ${st.voice === 'm' ? 'selected' : ''}>${L.voice.m}</option></select>`)}
       ${row('Произносить автоматически', 'Слово озвучивается при показе карточки',
         `<span data-sw="autoplay">${sw(st.autoplay)}</span>`)}
       ${row('Скорость речи', '<span id="s-speed-val">' + (st.speed || 1).toFixed(1) + '</span>×',
@@ -2082,8 +2078,8 @@ function openSettings() {
     saveProgress();
 
   });
-  $('#s-theme', bg).onchange = (e) => { localStorage.setItem('romana_theme', e.target.value); applyTheme(); };
-  $('#s-voice', bg).onchange = (e) => { st.voice = e.target.value; saveProgress(); speak('bună ziua'); };
+  $('#s-theme', bg).onchange = (e) => { localStorage.setItem(THEME_KEY, e.target.value); applyTheme(); };
+  $('#s-voice', bg).onchange = (e) => { st.voice = e.target.value; saveProgress(); speak(L.sample); };
   $('#s-rmode', bg).onchange = (e) => { st.reviewMode = e.target.value; saveProgress(); S.session = null; };
   $('#s-scope', bg).onchange = (e) => { st.reviewScope = e.target.value; saveProgress(); S.session = null; };
   $('#s-mreps', bg).onchange = (e) => { st.masterReps = +e.target.value; saveProgress(); S.session = null; };
@@ -2094,10 +2090,10 @@ function openSettings() {
   $('#s-rev', bg).onchange = (e) => { st.reviewPerDay = Math.max(5, +e.target.value || 60); saveProgress(); };
   const speed = $('#s-speed', bg);
   speed.oninput = (e) => { st.speed = +e.target.value; $('#s-speed-val', bg).textContent = st.speed.toFixed(1); };
-  speed.onchange = () => { saveProgress(); speak('bună ziua'); };
+  speed.onchange = () => { saveProgress(); speak(L.sample); };
 
   $('#s-check', bg).onclick = async () => {
-    const word = 'bună ziua', lines = [];
+    const word = L.sample, lines = [];
     lines.push(`индекс озвучки: ${Object.keys(S.audio).length} записей`);
     const url = audioUrl(word);
     lines.push(`адрес файла: ${url || 'НЕ НАЙДЕН'}`);
@@ -2155,7 +2151,7 @@ function openSettings() {
     const blob = new Blob([JSON.stringify(S.prog)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `romana-progress-${today()}.json`;
+    a.download = `${L.key}-progress-${today()}.json`;
     a.click();
   };
   $('#s-import', bg).onclick = () => {
@@ -2249,7 +2245,7 @@ function showCode(code) {
 }
 
 /* ---------------- оформление ---------------- */
-function themePref() { return localStorage.getItem('romana_theme') || 'system'; }
+function themePref() { return localStorage.getItem(THEME_KEY) || 'system'; }
 function applyTheme() {
   const pref = themePref();
   const dark = pref === 'dark' ||
@@ -2270,14 +2266,14 @@ async function boot() {
   // следим за переключением тёмной темы в системе, пока пользователь не выбрал явно
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
   mq.addEventListener('change', () => {
-    if ((localStorage.getItem('romana_theme') || 'system') === 'system') { applyTheme(); render(); }
+    if ((localStorage.getItem(THEME_KEY) || 'system') === 'system') { applyTheme(); render(); }
   });
   try {
     const [wd, al, ai, mn] = await Promise.all([
-      fetch('data/words-ro.json').then(r => r.json()),
-      fetch('data/alphabet-ro.json').then(r => r.json()),
-      fetch('data/audio_index.json').then(r => r.json()).catch(() => ({})),
-      fetch('data/mnemonics-ro.json').then(r => r.json()).catch(() => ({})),
+      fetch(L.data.words).then(r => r.json()),
+      fetch(L.data.alphabet).then(r => r.json()),
+      fetch(L.data.audio).then(r => r.json()).catch(() => ({})),
+      fetch(L.data.mnemonics).then(r => r.json()).catch(() => ({})),
     ]);
     S.words = wd.words; S.cats = wd.categories; S.alphabet = al; S.audio = ai; S.mnemo = mn || {};
     if (!Object.keys(S.audio).length) {
@@ -2292,7 +2288,7 @@ async function boot() {
     }
   } catch (e) {
     $('#main').innerHTML = `<div class="empty"><div class="ico">⚠️</div><h3>Не удалось загрузить словарь</h3>
-      <p>Откройте приложение через локальный сервер — ярлыком «Грузинский тренажёр» на Рабочем столе.</p></div>`;
+      <p>${L.launcherHint}</p></div>`;
     return;
   }
   $$('.tab').forEach(b => b.onclick = () => go(b.dataset.go));
