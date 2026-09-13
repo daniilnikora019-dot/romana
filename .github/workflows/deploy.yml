@@ -22,16 +22,15 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Проверить данные
-        run: |
-          python3 -m json.tool data/words-ro.json >/dev/null
-          python3 -m json.tool data/alphabet-ro.json >/dev/null
-          python3 -m json.tool data/mnemonics-ro.json >/dev/null
+      - name: Проверить целостность словаря и озвучки
+        run: python3 tools/check_build.py
+
       - name: Собрать сайт
         run: |
           mkdir -p _site
-          cp index.html style.css app.js sw.js manifest.json _site/
-          cp -r icons data _site/
+          cp index.html style.css app.js sw.js manifest.json robots.txt .nojekyll _site/
+          cp -r icons data audio _site/
+          echo "файлов в сборке: $(find _site -type f | wc -l)"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
