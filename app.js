@@ -1371,6 +1371,7 @@ function exerciseReview(w, o) {
         ${!askKa && S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
       </div>
       <div class="zone" id="zone" hidden></div>
+      <div id="mnemo-slot" hidden>${mnemoHTML()}</div>
       <div class="tools" id="tools">
         <button data-t="type" title="Написать слово">⌨︎</button>
         <button data-t="look" title="Посмотреть ответ">👁</button>
@@ -1394,6 +1395,7 @@ function exerciseReview(w, o) {
     done = true;
     reveal.hidden = false;
     releaseAudio(box);
+    showMnemo();
     speak(w.ka);
     $$('#grade button, #tools button', box).forEach(b => b.disabled = true);
     const card = box.querySelector('.review-card');
@@ -1402,8 +1404,14 @@ function exerciseReview(w, o) {
   };
 
   // глазок только открывает ответ; произнести — отдельная кнопка 🔊, она тут же появляется
+  // ассоциация открывается вместе с ответом: подсказка по созвучию имеет смысл,
+  // когда слово уже перед глазами, а до ответа она его выдала бы
+  const showMnemo = () => {
+    const slot = $('#mnemo-slot', box);
+    if (slot && slot.hidden && hasMnemo(w)) { slot.hidden = false; bindMnemo(slot, w); }
+  };
   const look = () => {
-    reveal.hidden = false; releaseAudio(box);
+    reveal.hidden = false; releaseAudio(box); showMnemo();
     tools.querySelector('[data-t=look]').classList.add('used');
   };
 
