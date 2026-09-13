@@ -29,7 +29,6 @@ function defaultProgress() {
       levels: ['A1', 'A2', 'B1'],
       voice: 'f', autoplay: true, translit: true, refresh: true,
       speed: 1, invertSwipe: false, reviewScope: 'selected', masterReps: 5,
-      autoNext: true,              // верный ответ уходит сам; при ошибке всегда ждём
       newPerDay: 12, reviewPerDay: 60,
       reviewMode: 'choose',        // choose — выбираешь способ сам; recall / choice / mix — фиксированные
     },
@@ -573,37 +572,33 @@ function bindSwipe(card, o) {
   window.addEventListener('mouseup', end);
 }
 
-/* Ждём, пока договорит озвучка, и только потом листаем дальше — иначе слово
-   обрывается на полуслове. Если звука нет, работает обычная короткая пауза. */
-function afterAudio(cb, fallback) {
-  const a = S.audioEl;
-  if (!a || a.paused || a.ended) { setTimeout(cb, fallback || 650); return; }
-  let fired = false;
-  const fire = () => { if (fired) return; fired = true; setTimeout(cb, 260); };
-  a.addEventListener('ended', fire, { once: true });
-  setTimeout(fire, 4000);                    // страховка, если звук не доиграет
-}
+/* Что происходит после ответа.
 
-/* После ответа: при ошибке ждём, пока разберёшься, и даём выбрать — дальше
-   или показать слово ещё раз в этой же сессии. */
-function afterAnswer(box, card, ok, w, done) {
-  const auto = S.prog.set.autoNext !== false;
-  if (ok && auto) { afterAudio(() => done(false)); return; }
+   Переход только по явному нажатию. Автопереход уводил с экрана раньше, чем
+   человек успевал заметить, верным был ответ или нет, — а именно в этот момент
+   и запоминается слово. Смахивание здесь тоже убрано: случайный жест смахивал
+   красный ответ, не дав его разглядеть.
+
+   При верном ответе кнопка называется «Я запомнил» — это осознанное
+   подтверждение, а не просто перелистывание. При неверном есть только
+   «Повторить ещё раз»: слово в любом случае вернётся в этой же сессии.
+   `graded` — для карточек, где человек уже сам себя оценил; там второе
+   подтверждение было бы лишним. */
+function afterAnswer(box, card, ok, w, done, graded) {
   const panel = el(`<div class="after-answer ${ok ? 'ok' : 'no'}">
-    <button class="btn ghost" data-a="again">↺ Показать ещё раз</button>
-    <button class="btn primary" data-a="next">Дальше →</button>
+    ${ok
+      ? `<button class="btn ghost" data-a="again">↺ Показать ещё раз</button>
+         <button class="btn success" data-a="next">${graded ? 'Дальше →' : '✓ Я запомнил'}</button>`
+      : `<button class="btn primary block" data-a="again">↺ Повторить ещё раз</button>`}
   </div>`);
   const go = (again) => { panel.remove(); done(again); };
-  panel.querySelector('[data-a=next]').onclick = () => go(false);
-  panel.querySelector('[data-a=again]').onclick = () => go(true);
+  const next = panel.querySelector('[data-a=next]');
+  if (next) next.onclick = () => go(false);
+  // при ошибке слово возвращается само, просить об этом ещё раз не нужно
+  panel.querySelector('[data-a=again]').onclick = () => go(ok);
   box.appendChild(panel);
-  if (card) bindSwipe(card, {                       // смахивание в любую сторону — дальше
-    rightLabel: 'дальше →', leftLabel: '← дальше',
-    onRight: () => go(false), onLeft: () => go(false),
-  });
   S.session.keys = (e) => {
-    if (e.key === 'Enter' || e.code === 'Space' || /^[1-4]$/.test(e.key)) { e.preventDefault(); go(false); }
-    else if (e.key === 'r') go(true);
+    if (e.key === 'Enter' || e.code === 'Space') { e.preventDefault(); go(ok ? false : false); }
   };
 }
 
@@ -1311,7 +1306,7 @@ function exerciseReview(w, o) {
     $$('#grade button, #tools button', box).forEach(b => b.disabled = true);
     const card = box.querySelector('.review-card');
     card.classList.add(ok ? 'said-yes' : 'said-no');
-    afterAnswer(box, card, ok, w, (again) => o.onDone(ok, again));
+    afterAnswer(box, card, ok, w, (again) => o.onDone(ok, again), true);
   };
 
   // глазок только открывает ответ; произнести — отдельная кнопка 🔊, она тут же появляется
@@ -2112,8 +2107,6 @@ function openSettings() {
         `<span data-sw="refresh">${sw(st.refresh !== false)}</span>`)}
       ${row('Инвертировать смахивания', 'Поменять местами «вспомнил» и «не вспомнил»',
         `<span data-sw="invertSwipe">${sw(st.invertSwipe)}</span>`)}
-      ${row('Сразу к следующему слову', 'При верном ответе идти дальше без нажатия. При ошибке приложение ждёт всегда',
-        `<span data-sw="autoNext">${sw(st.autoNext !== false)}</span>`)}
     </div>
 
     <div class="set-sect">Произношение</div>
@@ -2145,7 +2138,7 @@ function openSettings() {
 
   $$('[data-sw]', bg).forEach(node => node.onclick = () => {
     const k = node.dataset.sw;
-    const tri = (k === 'refresh' || k === 'autoNext');
+    const tri = (k === 'refresh');
     st[k] = tri ? !(st[k] !== false) : !st[k];
     node.firstElementChild.classList.toggle('on', tri ? st[k] !== false : !!st[k]);
     saveProgress();
