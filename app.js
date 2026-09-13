@@ -657,6 +657,18 @@ function bindSpeak(root, text) {
   const b = root.querySelector('.speak');
   if (b) b.onclick = () => speak(text);
 }
+
+/* Звук не должен выдавать ответ. Если на карточке показано русское слово, а вспомнить
+   нужно изучаемое, то произнести его вслух — то же самое, что показать: и автоозвучка,
+   и кнопка 🔊, и пробел молчат, пока ответ не открыт. */
+function holdAudio(box) {
+  const b = box.querySelector('.speak');
+  if (b) b.hidden = true;
+}
+function releaseAudio(box) {
+  const b = box.querySelector('.speak');
+  if (b) b.hidden = false;
+}
 /* Значимые корни перевода — чтобы не подсунуть синоним правильного ответа */
 function ruStems(text) {
   return new Set(String(text).toLowerCase().replace(/[^а-яёa-z]+/g, ' ').split(' ')
@@ -905,7 +917,10 @@ ROUTES.review = function () {
       const res = answerGrade(w, ok);
       ok ? s.right++ : s.wrong++;
       if (res.s === 'mastered') toast(`🎓 «${w.ka}» выучено полностью!`);
-      if (again) { s.queue.push(w); s.total++; }
+      // Слово не покидает сессию, пока не будет названо верно: иначе повторение
+      // заканчивалось с неотработанными ошибками — ровно то же правило, что в
+      // закреплении новых слов. Возвращается в конец очереди, а не сразу.
+      if (!ok || again) { s.queue.push(w); s.total++; }
       s.i++; render();
     },
   };
@@ -966,7 +981,7 @@ ROUTES.mixed = function () {
       const res = answerGrade(w, ok);
       ok ? s.right++ : s.wrong++;
       if (res.s === 'mastered') toast(`🎓 «${w.ka}» выучено полностью!`);
-      if (again) { s.queue.push({ type: 'review', w }); s.total++; }
+      if (!ok || again) { s.queue.push({ type: 'review', w }); s.total++; }
       s.i++; render();
     },
   }));
@@ -1049,7 +1064,8 @@ function exerciseChoice(w, mode, o) {
       `<button class="opt ${askKa ? 'ka' : ''}" data-i="${i}">${i + 1}. ${esc(x[field])}</button>`).join('')}</div>
   </div>`);
   bindSpeak(box, w.ka);
-  if (S.prog.set.autoplay || mode === 'listen') setTimeout(() => speak(w.ka), 200);
+  if (askKa) holdAudio(box);                      // ответ — изучаемое слово, озвучка назвала бы его
+  else if (S.prog.set.autoplay || mode === 'listen') setTimeout(() => speak(w.ka), 200);
 
   let answered = false;
   const answer = (idx) => {
@@ -1061,6 +1077,8 @@ function exerciseChoice(w, mode, o) {
       if (options[i].id === w.id) b.classList.add('right');
       else if (i === idx) b.classList.add('wrong');
     });
+    releaseAudio(box);                            // ответ открыт — слово можно и нужно услышать
+    if (askKa) speak(w.ka);
     if (!ok) {
       speak(w.ka);
       box.appendChild(el(`<div class="word-card" style="margin-top:14px;padding:18px">
@@ -1075,7 +1093,7 @@ function exerciseChoice(w, mode, o) {
   S.session.keys = (e) => {
     if (/^[1-4]$/.test(e.key)) answer(+e.key - 1);
     else if (e.key === 'Backspace') { e.preventDefault(); stepBack(); }
-    else if (e.code === 'Space') { e.preventDefault(); speak(w.ka); }
+    else if (e.code === 'Space' && !(askKa && !answered)) { e.preventDefault(); speak(w.ka); }
   };
   return box;
 }
@@ -1113,7 +1131,8 @@ function exerciseRecall(w, o) {
   </div>`);
   const speakWord = () => speak(w.ka);
   box.querySelector('.speak').onclick = speakWord;
-  if (S.prog.set.autoplay && !backwards) setTimeout(speakWord, 180);
+  if (backwards) holdAudio(box);                  // показано русское, вспомнить надо изучаемое
+  else if (S.prog.set.autoplay) setTimeout(speakWord, 180);
 
   let shown = false, done = false;
   const show = () => {
@@ -1124,6 +1143,7 @@ function exerciseRecall(w, o) {
     $('#stage-grade', box).hidden = false;
     const slot = $('#mnemo-slot', box);
     if (slot && hasMnemo(w)) { slot.hidden = false; bindMnemo(slot, w); }
+    releaseAudio(box);
     if (backwards || !S.prog.set.autoplay) speakWord();
   };
   const grade = (ok) => {
@@ -1143,7 +1163,7 @@ function exerciseRecall(w, o) {
   });
   bindBack(box);
   S.session.keys = (e) => {
-    if (e.code === 'Space') { e.preventDefault(); speakWord(); }
+    if (e.code === 'Space' && !(backwards && !shown)) { e.preventDefault(); speakWord(); }
     else if (e.key === 'Backspace') { e.preventDefault(); stepBack(); }
     else if (!shown && (e.key === 'Enter' || e.key === '3')) show();
     else if (shown && e.key === '1') grade(false);
@@ -1246,7 +1266,8 @@ function exerciseReview(w, o) {
     </div>
   </div>`);
   bindSpeak(box, w.ka);
-  if (S.prog.set.autoplay && askKa) setTimeout(() => speak(w.ka), 180);
+  if (!askKa) holdAudio(box);                     // на лицевой стороне русское слово
+  else if (S.prog.set.autoplay) setTimeout(() => speak(w.ka), 180);
 
   const zone = $('#zone', box), reveal = $('#reveal', box), tools = $('#tools', box);
   let done = false;
@@ -1254,6 +1275,7 @@ function exerciseReview(w, o) {
     if (done) return;
     done = true;
     reveal.hidden = false;
+    releaseAudio(box);
     speak(w.ka);
     $$('#grade button, #tools button', box).forEach(b => b.disabled = true);
     const card = box.querySelector('.review-card');
@@ -1261,7 +1283,10 @@ function exerciseReview(w, o) {
     afterAnswer(box, card, ok, w, (again) => o.onDone(ok, again));
   };
 
-  const look = () => { reveal.hidden = false; speak(w.ka); tools.querySelector('[data-t=look]').classList.add('used'); };
+  const look = () => {
+    reveal.hidden = false; releaseAudio(box); speak(w.ka);
+    tools.querySelector('[data-t=look]').classList.add('used');
+  };
 
   const typing = () => {
     if (zone.dataset.mode === 'type') return;
@@ -1322,7 +1347,7 @@ function exerciseReview(w, o) {
     else if (e.key === '2') look();
     else if (e.key === '3') picking();
     else if (e.key === 'Backspace') { e.preventDefault(); stepBack(); }
-    else if (e.code === 'Space') { e.preventDefault(); speak(w.ka); }
+    else if (e.code === 'Space' && !(!askKa && reveal.hidden)) { e.preventDefault(); speak(w.ka); }
   };
   return box;
 }
@@ -1348,11 +1373,15 @@ function exerciseBuild(w, o) {
     </div>
   </div>`);
   bindSpeak(box, w.ka);
-  if (S.prog.set.autoplay) setTimeout(() => speak(w.ka), 200);
+  holdAudio(box);                                 // слово собирают по буквам — звук назвал бы ответ
   const slot = $('#slot', box);
+  let shown = false;
   const finish = (ok) => {
+    shown = true;
     slot.classList.add(ok ? 'ok' : 'no');
-    if (!ok) { slot.textContent = target; speak(w.ka); }
+    releaseAudio(box);
+    if (ok) speak(w.ka);
+    else { slot.textContent = target; speak(w.ka); }
     $$('.letters button', box).forEach(b => b.disabled = true);
     $$('.answer-actions .btn', box).forEach(b => b.disabled = true);   // ответ уже показан — не даём его стереть
     afterAnswer(box, null, ok, w, (again) => o.onDone(ok, again));
@@ -1377,7 +1406,7 @@ function exerciseBuild(w, o) {
   box.querySelector('[data-a=skip]').onclick = () => finish(false);
   bindBack(box);
   S.session.keys = (e) => {
-    if (e.code === 'Space') { e.preventDefault(); speak(w.ka); }
+    if (e.code === 'Space' && shown) { e.preventDefault(); speak(w.ka); }
     else if (e.key === 'Backspace') { e.preventDefault(); stepBack(); }
   };
   return box;
