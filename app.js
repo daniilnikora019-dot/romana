@@ -39,6 +39,13 @@ function defaultProgress() {
    Хранится в прогрессе, а не в сессии: раньше выход из закрепления на полпути
    оставлял такие слова в пустоте — новыми они больше не предлагались, на
    повторение ещё не пришли, а сессия с ними терялась. */
+/* Норма — план на день, а не потолок: размер порции выбирается вручную и может
+   её перекрыть. Дробь «11 из 10» при этом читается как ошибка, поэтому сверх
+   нормы показываем прибавкой, а не невозможным знаменателем. */
+function goalText(done, goal) {
+  return done > goal ? `${goal} + ${done - goal} сверх` : `${done} / ${goal}`;
+}
+
 function pendingDrill() {
   const ids = S.prog.pend || [];
   return ids.map(id => S.byId.get(id)).filter(w => w && wp(w.id).s === 'learning' && !(wp(w.id).r > 0));
@@ -397,7 +404,7 @@ ROUTES.home = function () {
             <span class="mt"><b>${unfinished ? 'Закрепить начатое' : 'Учить новые слова'}</b>
               <i>${unfinished
                 ? `${plural(unfinished, 'слово ждёт', 'слова ждут', 'слов ждут')} закрепления`
-                : `Закреплено сегодня: ${t.drilled} из ${goalNew}${c.fresh ? ` · доступно ${c.fresh}` : ''}`}</i></span>
+                : `Закреплено сегодня: ${goalText(t.drilled, goalNew)}${c.fresh ? ` · доступно ${c.fresh}` : ''}`}</i></span>
             <span class="ma">${unfinished || newLeftToday() || ''} ›</span></button>
           <button class="menu-row" data-act="review">
             <span class="mi gold">🔄</span>
@@ -434,7 +441,7 @@ ROUTES.home = function () {
                 <b class="num">${donePct}%</b><span>цель дня</span></div>
             </div>
             <div class="goal-list">
-              <div class="goal-row"><span>Новых слов закреплено</span><b>${t.drilled} / ${goalNew}</b></div>
+              <div class="goal-row"><span>Новых слов закреплено</span><b>${goalText(t.drilled, goalNew)}</b></div>
               <div class="goal-row"><span>Выучено полностью сегодня</span><b>${t.new}</b></div>
               <div class="goal-row"><span>Повторено сегодня</span>
                 <b>${t.rev}${c.due ? ` · ждёт ${c.due}` : ''}</b></div>
@@ -813,7 +820,7 @@ function batchPicker(available, left) {
     ${subHead('Новая порция', 'home')}
     <div style="text-align:center;margin:6px 0 22px">
       <h1 style="margin:0 0 6px">Сколько слов возьмём?</h1>
-      <p class="sub">Сегодня закреплено ${done} из ${S.prog.set.newPerDay} по дневной норме ·
+      <p class="sub">По дневной норме закреплено ${goalText(done, S.prog.set.newPerDay)} ·
         доступно ${plural(available, 'новое слово', 'новых слова', 'новых слов')}</p>
     </div>
     <div class="cats-grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
@@ -934,13 +941,16 @@ function learnDrill() {
     onDone: (ok, again) => {
       s.hist = s.hist || [];
       s.hist.push({ snap: snapshot(w), i: s.i, phase: 'drill' });
-      const was = wp(w.id).r || 0;
-      const res = answerGrade(w, ok, true);
-      // Слово идёт в зачёт дня, когда впервые названо верно здесь, в закреплении.
-      // Смахнуть «учить» — ещё не результат, поэтому взятые слова считаются отдельно:
-      // по ним определяется размер порции, иначе брошенная сессия дала бы взять сверх нормы.
-      if (ok && was === 0 && res.r === 1) dayRec(today()).drilled++;
-      if (ok) markPending(w.id, false);
+      answerGrade(w, ok, true);
+      // Слово идёт в зачёт дня, когда впервые названо верно здесь, в закреплении:
+      // смахнуть «учить» — ещё не результат. Взятые считаются отдельным счётчиком,
+      // по нему определяется размер порции. Отметка «не закреплено» снимается тут же,
+      // поэтому одно слово попадает в зачёт ровно один раз, даже если его счётчик
+      // верных ответов потом снова упадёт до нуля.
+      if (ok && (S.prog.pend || []).includes(w.id)) {
+        dayRec(today()).drilled++;
+        markPending(w.id, false);
+      }
       // закрепление не заканчивается, пока каждое слово не будет названо верно
       if (ok) s.pending.delete(w.id); else s.drill.push(w);
       if (again && ok) { s.drill.push(w); s.pending.add(w.id); }
