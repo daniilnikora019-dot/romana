@@ -49,6 +49,37 @@ def config_keys(text):
     return paths
 
 cfg = open(f'{ROOT}/config.js', encoding='utf-8').read() if os.path.exists(f'{ROOT}/config.js') else ''
+
+# config.js — это JavaScript, и ошибка в нём валит приложение целиком: объект L
+# не создаётся, и загрузка замирает на «загружаю словарь». Проверка поймала бы
+# случай, когда комментарий был вписан питоновской решёткой вместо //.
+def js_syntax_errors(text):
+    bad, depth, in_str, quote, esc = [], 0, False, '', False
+    for n, line in enumerate(text.split('\n'), 1):
+        i = 0
+        while i < len(line):
+            c = line[i]
+            if in_str:
+                if esc: esc = False
+                elif c == '\\': esc = True
+                elif c == quote: in_str = False
+            elif c in '"\'`':
+                in_str, quote = True, c
+            elif c == '/' and i + 1 < len(line) and line[i + 1] == '/':
+                break                                   # дальше комментарий
+            elif c == '#':
+                bad.append(f'config.js:{n} — решётка вместо // : это синтаксис Python, JavaScript так не умеет')
+                break
+            elif c == '{': depth += 1
+            elif c == '}': depth -= 1
+            i += 1
+        in_str = False
+    if depth != 0:
+        bad.append(f'config.js — фигурные скобки не сходятся (разница {depth})')
+    return bad
+
+for e in js_syntax_errors(cfg):
+    errors.append(e)
 if not cfg:
     errors.append('нет config.js — в нём живут все языковые различия')
 else:
