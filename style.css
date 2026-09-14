@@ -397,6 +397,32 @@ h2.sect + .menu-card{margin-bottom:18px}
 .empty .ico.spin .icn{animation:ic-spin 1.6s linear infinite}
 @keyframes ic-spin{to{transform:rotate(360deg)}}
 
+/* ---------- подсказки «i» ----------
+   Кнопка стоит вплотную к действию, но приглушена: она объясняет, а не зовёт
+   нажать. Записка всплывает поверх всего, поэтому у неё своя тень и подложка. */
+.data-acts{display:flex;gap:9px;margin-top:10px;flex-wrap:wrap}
+.data-acts .act{display:inline-flex;align-items:center;gap:4px}
+.hint-btn{
+  width:26px;height:26px;flex:none;border-radius:50%;display:grid;place-items:center;
+  color:var(--muted);transition:color .14s,background .14s;
+}
+.hint-btn .icn{width:17px;height:17px;vertical-align:0;stroke-width:1.6}
+.hint-btn[aria-expanded="true"]{color:var(--accent);background:var(--accent-soft)}
+.hint-pop{
+  position:fixed;z-index:80;max-width:min(300px,calc(100vw - 24px));
+  background:var(--surface);color:var(--text-2);border:1px solid var(--line);
+  border-radius:var(--r-md);box-shadow:var(--shadow-md);
+  padding:11px 13px;font-size:13px;line-height:1.5;text-align:left;
+}
+/* уголок в сторону кнопки: два квадрата, верхний закрывает линию рамки */
+.hint-pop::before,.hint-pop::after{
+  content:'';position:absolute;left:calc(var(--arrow) - 6px);width:11px;height:11px;
+  transform:rotate(45deg);background:var(--surface);border:1px solid var(--line);
+}
+.hint-pop::before{top:-6.5px;border-width:1px 0 0 1px}
+.hint-pop::after{display:none}
+.hint-pop.above::before{top:auto;bottom:-6.5px;border-width:0 1px 1px 0}
+
 /* ---------- пусто/финиш ---------- */
 .empty{text-align:center;padding:60px 20px;color:var(--muted)}
 .empty .ico{font-size:42px;margin-bottom:16px;opacity:.9}
