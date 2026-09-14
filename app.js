@@ -515,7 +515,7 @@ ROUTES.home = function () {
             <span class="mt"><b>${unfinished ? 'Закрепить начатое' : 'Учить новые слова'}</b>
               <i>${unfinished
                 ? `${plural(unfinished, 'слово ждёт', 'слова ждут', 'слов ждут')} закрепления`
-                : `Закреплено сегодня: ${goalText(t.drilled, goalNew)}${c.fresh ? ` · доступно ${c.fresh}` : ''}`}</i></span>
+                : `Закреплено сегодня: ${goalText(t.drilled, goalNew)}`}</i></span>
             <span class="ma">${unfinished || newLeftToday() || ''} ›</span></button>
           <button class="menu-row" data-act="review">
             <span class="mi gold">${ico('refresh')}</span>
