@@ -585,9 +585,8 @@ function bindSwipe(card, o) {
    При верном ответе кнопка называется «Я запомнил» — это осознанное
    подтверждение, а не просто перелистывание. При неверном есть только
    «Повторить ещё раз»: слово в любом случае вернётся в этой же сессии.
-   В карточке повторения этой панели нет: там человек сам выносит вердикт,
-   и строка оценки после него превращается в «Дальше →» — две строки об одном
-   и том же стояли друг под другом и только путали. */
+   В карточке повторения этой панели нет: там вердикт всегда за человеком,
+   и после проверки остаётся та же пара кнопок «вспомнил / не вспомнил». */
 function afterAnswer(box, card, ok, w, done) {
   const panel = el(`<div class="after-answer ${ok ? 'ok' : 'no'}">
     ${ok
@@ -1419,38 +1418,37 @@ function exerciseReview(w, o) {
   else if (S.prog.set.autoplay) setTimeout(() => speak(w.ka), 180);
 
   const zone = $('#zone', box), reveal = $('#reveal', box), tools = $('#tools', box);
-  let done = false;
-  const finish = (ok, delay) => {
-    if (done) return;
-    done = true;
+  let done = false, checked = false;
+  // Вердикт всегда за человеком: автопроверка только показывает ответ и
+  // подсвечивает выбранный вариант, а засчитывает слово та же пара кнопок,
+  // что и без проверки. Угадать вариант наугад и честно нажать «не вспомнил»
+  // должно быть можно, поэтому отдельной кнопки «Дальше» здесь нет.
+  const grade = (ok) => { if (done) return; done = true; o.onDone(ok, false); };
+  const finish = (ok) => {
+    if (checked) return;
+    checked = true;
     reveal.hidden = false;
     releaseAudio(box);
     showMnemo();
     speak(w.ka);
     // Инструменты проверки после ответа не нужны, а место занимают: убираем их,
-    // чтобы карточка вместе с кнопкой «Дальше» помещалась на экран без прокрутки.
+    // чтобы карточка вместе с оценкой помещалась на экран без прокрутки.
     tools.hidden = true;
     // Если у вариантов есть свои ▶️, верхняя кнопка озвучки их дублирует —
-    // убираем и её, это ещё сорок с лишним пикселей в пользу кнопки «Дальше».
+    // убираем и её, это ещё сорок с лишним пикселей в пользу строки оценки.
     if (zone.querySelector('.opt-play')) {
       const top = box.querySelector('.review-card > .speak');
       if (top) top.hidden = true;
     }
     const card = box.querySelector('.review-card');
     card.classList.add(ok ? 'said-yes' : 'said-no');
-    // Строка оценки и панель «дальше» означали одно и то же и стояли друг под
-    // другом. Оставлена одна строка, на своём месте: после вердикта она
-    // превращается в «Дальше →», а ответ к этому моменту уже открыт.
-    const grade = $('#grade', box);
-    grade.innerHTML = '<button data-g="next"><b>Дальше →</b><span>' +
-      (ok ? 'вспомнили' : 'вернётся ещё раз') + '</span></button>';
-    grade.querySelector('[data-g=next]').onclick = () => o.onDone(ok, false);
     // Высота карточки гуляет от длины слова, названия категории и наличия
-    // ассоциации, поэтому не подгоняем пиксели, а подводим строку действия
-    // под глаз: искать кнопку прокруткой пользователю не приходится.
+    // ассоциации, поэтому не подгоняем пиксели, а подводим строку оценки
+    // под глаз: искать кнопки прокруткой пользователю не приходится.
     // Подводим дважды: сразу и после того, как раскрытый ответ и ассоциация
     // достроятся — иначе первая подводка целится по ещё не сложившейся вёрстке.
-    const bring = () => grade.scrollIntoView({ block: 'end', behavior: 'smooth' });
+    const row = $('#grade', box);
+    const bring = () => row.scrollIntoView({ block: 'end', behavior: 'smooth' });
     setTimeout(bring, 60);
     setTimeout(bring, 450);
   };
@@ -1495,7 +1493,7 @@ function exerciseReview(w, o) {
         ? w.ru.split(/[;,]/).some(x => normalizeAnswer(x) === t)
         : (t === normalizeAnswer(w.ka) || t === normalizeAnswer(w.tr));
       input.classList.add(ok ? 'ok' : 'no');
-      finish(ok, ok ? 900 : 2000);
+      finish(ok);
     };
     $('#check', zone).onclick = check;
     input.onkeydown = (e) => { if (e.key === 'Enter') check(); };
@@ -1517,7 +1515,7 @@ function exerciseReview(w, o) {
         if (options[i].id === w.id) x.classList.add('right');
         else if (x === b) x.classList.add('wrong');
       });
-      finish(ok, ok ? 800 : 1800);
+      finish(ok);
     });
   };
 
@@ -1525,11 +1523,11 @@ function exerciseReview(w, o) {
     const t = b.dataset.t;
     if (t === 'look') look(); else if (t === 'type') typing(); else picking();
   });
-  $('#grade', box).querySelector('[data-g=yes]').onclick = () => finish(true);
-  $('#grade', box).querySelector('[data-g=no]').onclick = () => finish(false);
+  $('#grade', box).querySelector('[data-g=yes]').onclick = () => grade(true);
+  $('#grade', box).querySelector('[data-g=no]').onclick = () => grade(false);
   bindSwipe(box.querySelector('.review-card'), {
     rightLabel: '✓ Вспомнил', leftLabel: '✗ Не вспомнил',
-    onRight: () => finish(true, 700), onLeft: () => finish(false, 1500),
+    onRight: () => grade(true), onLeft: () => grade(false),
   });
   bindBack(box);
   S.session.keys = (e) => {

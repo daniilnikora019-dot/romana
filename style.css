@@ -309,8 +309,8 @@ h2.sect + .menu-card{margin-bottom:18px}
   transition:background .14s;
 }
 .grade-row button:first-child{border-right:1px solid var(--line)}
-.grade-row button b{font-size:14.5px;font-weight:620}
-.grade-row button span{font-size:12px;color:var(--muted)}
+/* обе строки оценки — одна фраза «я вспомнил это слово», поэтому и набраны одинаково */
+.grade-row button b,.grade-row button span{font-size:14.5px;font-weight:620;color:inherit}
 .grade-row button:disabled{opacity:.4}
 
 /* свайпы */
@@ -531,7 +531,7 @@ canvas{display:block;width:100%}
   .modal{padding:20px 18px;max-height:88vh}
   .set-row{flex-wrap:wrap;gap:8px}
   .set-row select,.set-row input[type=number]{margin-left:auto}
-  .grade-row button b{font-size:13.5px}
+  .grade-row button b,.grade-row button span{font-size:13.5px}
   .tools button{width:58px;height:44px}
   .word-ka{font-size:34px}
   .word-card{padding:30px 20px 26px}
@@ -607,9 +607,6 @@ button,.cat-card,.letter-card,.wcard,.cat-line,.menu-row,.wrow{-webkit-tap-highl
   border:1px solid var(--line);font-size:17px;line-height:1;
 }
 .opt-play:active{background:var(--surface-2)}
-
-/* после вердикта в строке оценки остаётся одна кнопка — она занимает всю ширину */
-.grade-row button:only-child{border-right:none}
 
 /* строка действия не должна прятаться под нижней панелью при автоподводке */
 .grade-row{scroll-margin-bottom:calc(96px + env(safe-area-inset-bottom))}
