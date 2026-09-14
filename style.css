@@ -12,6 +12,8 @@
   --green:#5aa36f; --green-soft:#e8f2ea;
   --clay:#a8503f; --clay-soft:#f7e9e6;
   --slate:#5a6d80; --slate-soft:#e9edf1;
+  /* фоновый узор из букв: кофейный по светлому */
+  --pattern-ink:#6f5238; --pattern-alpha:.15;
   /* форма */
   --r-sm:10px; --r-md:14px; --r-lg:20px; --r-xl:26px;
   --shadow-sm:0 1px 2px rgba(28,24,18,.05), 0 2px 8px rgba(28,24,18,.04);
@@ -27,6 +29,8 @@
   --green:#74c98d; --green-soft:#17301f;
   --clay:#cc7867; --clay-soft:#2e1c18;
   --slate:#8ba3ba; --slate-soft:#1b232b;
+  /* по тёмному кофейный не читается — горчичный */
+  --pattern-ink:#c9982f; --pattern-alpha:.11;
   --shadow-sm:0 1px 2px rgba(0,0,0,.3);
   --shadow-md:0 2px 8px rgba(0,0,0,.35), 0 16px 36px rgba(0,0,0,.3);
 }
@@ -50,7 +54,21 @@ input,select{font-family:inherit;font-size:inherit;color:inherit}
 ::selection{background:var(--accent-soft);color:var(--text)}
 
 /* ---------- каркас ---------- */
-#app{display:block;min-height:100vh}
+/* Фоновый узор из букв родного письма — «монограмма» приложения. Лежит под
+   содержимым, приклеен к экрану и не прокручивается; сами буквы перечислены
+   в config.js, общий код о письме ничего не знает. */
+#wallpaper{
+  position:fixed;z-index:0;pointer-events:none;overflow:hidden;
+  top:calc(var(--wp-step) * -1);left:calc(var(--wp-step) * -1);
+  width:calc(100% + var(--wp-step) * 2);height:calc(100% + var(--wp-step) * 2);
+  color:var(--pattern-ink);opacity:var(--pattern-alpha);
+  font-size:var(--wp-size);line-height:1;
+  user-select:none;-webkit-user-select:none;
+}
+#wallpaper .wp-row{display:flex;height:var(--wp-step);align-items:center}
+#wallpaper span{flex:0 0 var(--wp-step);text-align:center}
+#wallpaper span.rev{display:inline-block;transform:rotate(180deg)}
+#app{display:block;min-height:100vh;position:relative;z-index:1}
 #main{
   min-width:0;max-width:1160px;margin:0 auto;
   padding:28px 26px calc(116px + env(safe-area-inset-bottom));
@@ -351,6 +369,34 @@ h2.sect + .menu-card{margin-bottom:18px}
   padding:13px 15px;border-radius:var(--r-sm);font-size:13.5px;line-height:1.55;text-align:left;color:var(--text-2);
 }
 
+/* ---------- значки ----------
+   Свой набор контурных значков вместо эмодзи: эмодзи рисует система, они
+   разные на разных устройствах и тянут за собой чужой стиль. Здесь один
+   язык формы и цвет по тексту, поэтому значок сам следует за темой. */
+.icn{
+  width:1.05em;height:1.05em;flex:none;vertical-align:-.17em;
+  fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+}
+#tabbar .tab i{display:flex}
+#tabbar .tab i .icn{width:25px;height:25px;vertical-align:0}
+.menu-row .mi .icn{width:20px;height:20px;vertical-align:0}
+.speak .icn{width:20px;height:20px;vertical-align:0}
+.speak.lg .icn{width:25px;height:25px}
+.tools button .icn{width:22px;height:22px;vertical-align:0}
+.opt-play .icn,.ex-play .icn{width:19px;height:19px;vertical-align:0}
+.wcard .wplay .icn{width:17px;height:17px;vertical-align:0}
+.cat-card .check .icn{width:13px;height:13px;stroke-width:2.8;vertical-align:0}
+.stat .n .icn{width:.8em;height:.8em;vertical-align:-.04em}
+/* крупный значок на пустом экране: тонкая линия, иначе читается как заливка */
+/* цветной значок раздела из открытого набора: размер по месту, где он стоит */
+.cat-ic{width:1.1em;height:1.1em;vertical-align:-.2em}
+.word-card .cat .cat-ic{width:14px;height:14px}
+.sub-head .cat-ic{width:21px;height:21px;vertical-align:-.22em}
+.cp-row .nm .cat-ic{width:15px;height:15px}
+.empty .ico .icn{width:46px;height:46px;stroke-width:1.25}
+.empty .ico.spin .icn{animation:ic-spin 1.6s linear infinite}
+@keyframes ic-spin{to{transform:rotate(360deg)}}
+
 /* ---------- пусто/финиш ---------- */
 .empty{text-align:center;padding:60px 20px;color:var(--muted)}
 .empty .ico{font-size:42px;margin-bottom:16px;opacity:.9}
@@ -365,7 +411,7 @@ h2.sect + .menu-card{margin-bottom:18px}
 }
 .cat-card.on{border-color:var(--accent);background:var(--accent-soft)}
 .cat-card .top{display:flex;align-items:flex-start;gap:10px;margin-bottom:11px}
-.cat-card .ic{font-size:19px;line-height:1.2}
+.cat-card .ic .cat-ic{width:20px;height:20px}
 .cat-card .nm{font-weight:620;font-size:14px;line-height:1.25;letter-spacing:-.1px}
 .cat-card .cnt{font-size:11.5px;color:var(--muted);margin-top:3px}
 .cat-card .check{
@@ -408,7 +454,8 @@ input[type=search]{flex:1;min-width:210px}
   text-align:left;transition:background .12s;min-height:60px;
 }
 .cat-line + .cat-line{border-top:1px solid var(--line)}
-.cat-line .ic{font-size:20px;width:34px;flex:0 0 34px;text-align:center}
+.cat-line .ic{width:34px;flex:0 0 34px;display:grid;place-items:center}
+.cat-line .ic .cat-ic{width:23px;height:23px}
 .cat-line .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .cat-line .nm b{font-size:14.5px;font-weight:600}
 .cat-line .nm i{font-style:normal;font-size:12px;color:var(--muted)}
