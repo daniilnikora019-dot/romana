@@ -3,6 +3,7 @@
 
 const LS_KEY = `${L.key}_progress_v1`;
 const THEME_KEY = `${L.key}_theme`;
+const SESSION_KEY = `${L.key}_session_v1`;
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
 // интервалы SRS: после 5-го верного ответа слово считается выученным
 const STEPS = [10 * 60e3, 6 * 3600e3, 24 * 3600e3, 3 * 864e5, 7 * 864e5];
@@ -598,6 +599,35 @@ ROUTES.home = function () {
   return box;
 };
 
+/* ---------------- незаконченное повторение ----------------
+   Сессия повторения жила только в памяти вкладки. iOS выгружает приложение,
+   пока оно в фоне, и после возвращения счётчик начинался заново, хотя слова
+   были не пройдены: со стороны это выглядело как обнуление на ровном месте
+   (особенно заметно ночью — приложение стоит открытым, а утром оно уже другое).
+   Сами слова при этом не терялись: оценка каждого сохраняется сразу.
+   Здесь сохраняется только ход сессии — очередь и счётчики. */
+function saveSession(s) {
+  if (!s || s.kind !== 'review') return;
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      kind: s.kind, ids: s.queue.map(w => w.id), i: s.i, right: s.right, wrong: s.wrong,
+      total: s.total, words: s.words, left: [...s.left], missed: [...s.missed], at: Date.now(),
+    }));
+  } catch (e) { /* переполненное хранилище не должно ломать занятие */ }
+}
+function dropSession() { try { localStorage.removeItem(SESSION_KEY); } catch (e) {} }
+function loadSession(kind) {
+  let d;
+  try { d = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { return null; }
+  // Через полсуток продолжать уже нечего: слова успели уйти на новый срок,
+  // и человек возвращается не к прерванному занятию, а к новому.
+  if (!d || d.kind !== kind || Date.now() - d.at > 12 * 3600e3) return null;
+  const queue = d.ids.map(id => S.byId.get(id)).filter(Boolean);
+  if (d.i >= queue.length) return null;              // сессия и так была пройдена
+  return { kind, queue, i: d.i, right: d.right, wrong: d.wrong, total: d.total, words: d.words,
+           left: new Set(d.left), missed: new Set(d.missed), method: null, hist: [] };
+}
+
 /* ---------------- шаг назад: снимок состояния и откат ---------------- */
 function snapshot(w) {
   const t = today();
@@ -647,6 +677,7 @@ function stepBack() {
   if (h.newDone && s.newDone) s.newDone--;
   if (s.left && h.leftHad !== undefined) h.leftHad ? s.left.add(h.snap.id) : s.left.delete(h.snap.id);
   if (s.missed && h.missedHad !== undefined) h.missedHad ? s.missed.add(h.snap.id) : s.missed.delete(h.snap.id);
+  saveSession(s);
   render();
 }
 
@@ -1130,6 +1161,10 @@ function learnDrill() {
 /* ---------------- повторение ---------------- */
 ROUTES.review = function () {
   if (!S.session || S.session.kind !== 'review') {
+    S.session = loadSession('review');               // продолжаем прерванное занятие
+  }
+  if (!S.session) {
+    dropSession();
     const q = dueQueue().slice(0, S.prog.set.reviewPerDay);
     if (!q.length) {
       const c = counts();
@@ -1149,7 +1184,7 @@ ROUTES.review = function () {
   const s = S.session, w = s.queue[s.i];
   if (!w) {
     const words = s.words, missed = s.missed.size;
-    S.session = null;
+    S.session = null; dropSession();
     return emptyScreen(ico(missed ? 'done' : 'trophy'), 'Повторение завершено',
       `Повторено ${plural(words, 'слово', 'слова', 'слов')}` +
       (missed ? ` · сразу вспомнили ${words - missed}, с ошибкой ${missed}`
@@ -1177,7 +1212,7 @@ ROUTES.review = function () {
       // заканчивалось с неотработанными ошибками — ровно то же правило, что в
       // закреплении новых слов. Возвращается в конец очереди, а не сразу.
       if (!ok || again) { s.queue.push(w); s.total++; }
-      s.i++; render();
+      s.i++; saveSession(s); render();
     },
   };
   const setting = S.prog.set.reviewMode || 'choose';
@@ -2455,9 +2490,9 @@ function openSettings() {
   $('#s-theme', bg).onchange = (e) => { localStorage.setItem(THEME_KEY, e.target.value); applyTheme(); };
   const voiceSel = $('#s-voice', bg);
   if (voiceSel) voiceSel.onchange = (e) => { st.voice = e.target.value; saveProgress(); speak(L.sample); };
-  $('#s-rmode', bg).onchange = (e) => { st.reviewMode = e.target.value; saveProgress(); S.session = null; };
-  $('#s-scope', bg).onchange = (e) => { st.reviewScope = e.target.value; saveProgress(); S.session = null; };
-  $('#s-mreps', bg).onchange = (e) => { st.masterReps = +e.target.value; saveProgress(); S.session = null; };
+  $('#s-rmode', bg).onchange = (e) => { st.reviewMode = e.target.value; saveProgress(); S.session = null; dropSession(); };
+  $('#s-scope', bg).onchange = (e) => { st.reviewScope = e.target.value; saveProgress(); S.session = null; dropSession(); };
+  $('#s-mreps', bg).onchange = (e) => { st.masterReps = +e.target.value; saveProgress(); S.session = null; dropSession(); };
   $('#s-new', bg).onchange = (e) => {
     st.newPerDay = Math.max(1, Math.min(200, +e.target.value || 12));
     S.extraNew = false; S.session = null; saveProgress();
@@ -2551,7 +2586,8 @@ function openSettings() {
   };
   $('#s-reset', bg).onclick = () => {
     if (!confirm('Удалить весь прогресс изучения? Это действие необратимо.')) return;
-    S.prog = defaultProgress(); saveProgress(); bg.remove(); render(); toast('Прогресс сброшен');
+    S.prog = defaultProgress(); S.session = null; dropSession();
+    saveProgress(); bg.remove(); render(); toast('Прогресс сброшен');
   };
   document.body.appendChild(bg);
 }
@@ -2603,6 +2639,7 @@ function applyRestored(p) {
   S.prog.set = Object.assign(defaultProgress().set, p.set || {});
   S.prog.w = p.w || {}; S.prog.days = p.days || {};
   S.session = null;
+  dropSession();
   saveProgress();
 }
 
