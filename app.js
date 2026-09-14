@@ -227,10 +227,74 @@ const ICONS = {
   search:  '<circle cx="10.8" cy="10.8" r="6.4"/><path d="M15.6 15.6l4.8 4.8"/>',
   warn:    '<path d="M12 3.6 21 19.6H3z"/><path d="M12 9.8v4.2M12 17h.01"/>',
   clock:   '<circle cx="12" cy="12" r="8.6"/><path d="M12 6.8V12l3.4 2"/>',
+  info:    '<circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5M12 7.9h.01"/>',
 };
 /* значок вставляется в разметку строкой; размер задаётся из CSS кеглем места,
    куда он попал, поэтому один и тот же значок годится и для кнопки, и для строки */
 const ico = (n, cls) => `<svg class="icn${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
+
+/* ---------------- подсказки «i» ----------------
+   Кнопка рядом с действием, по нажатию — всплывающая записка. Так объяснение
+   не занимает места, пока его не спросили, а спросить можно не уходя с экрана.
+   Записка закрывается повторным нажатием, нажатием мимо, Esc и прокруткой:
+   на телефоне промахнуться мимо мелкой кнопки легко, и залипшая подсказка
+   раздражала бы сильнее, чем её отсутствие. */
+const HINTS = {
+  copy: `Складывает весь прогресс в текстовый код. Скопируйте его и сохраните где угодно —
+    в заметках, письме самому себе, переписке. Из этого кода прогресс потом восстанавливается,
+    в том числе на другом устройстве.`,
+  paste: `Вставьте сюда код, скопированный раньше, — прогресс станет таким, каким был в момент
+    копирования. Нынешний при этом пропадёт, поэтому сначала скопируйте его.`,
+  export: `То же, что код, только файлом. В приложении, запущенном с экрана «Домой», iOS не всегда
+    разрешает сохранять файлы — если не получилось, пользуйтесь кодом.`,
+  import: `Загружает прогресс из ранее сохранённого файла. Нынешний прогресс будет заменён.`,
+  check: `Проверяет, скачивается ли озвучка и играет ли звук. Пригодится, если слова молчат:
+    покажет, дело в файлах приложения или в самом устройстве.`,
+  reset: `Стирает всё: выученные слова, серию дней, настройки и выбранные категории.
+    Отменить нельзя — сначала сохраните копию.`,
+};
+const hintBtn = (n) => `<button class="hint-btn" data-hint="${n}" aria-label="Зачем это нужно"
+  aria-expanded="false">${ico('info')}</button>`;
+
+function bindHints(root) {
+  let pop = null, cur = null;
+  const close = () => {
+    if (!pop) return;
+    cur.setAttribute('aria-expanded', 'false');
+    pop.remove(); pop = null; cur = null;
+    document.removeEventListener('pointerdown', outside, true);
+    document.removeEventListener('keydown', onEsc);
+    window.removeEventListener('scroll', close, true);
+    window.removeEventListener('resize', close);
+  };
+  const onEsc = (e) => { if (e.key === 'Escape') close(); };
+  const outside = (e) => { if (pop && !pop.contains(e.target) && e.target !== cur && !cur.contains(e.target)) close(); };
+  const open = (btn) => {
+    close();
+    cur = btn;
+    btn.setAttribute('aria-expanded', 'true');
+    pop = el(`<div class="hint-pop" role="tooltip">${esc(HINTS[btn.dataset.hint] || '').replace(/\s+/g, ' ')}</div>`);
+    document.body.appendChild(pop);
+    const r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+    const left = Math.max(12, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 12));
+    // снизу, если помещается; иначе сверху — иначе записка уехала бы за край экрана
+    const below = r.bottom + 10 + h <= window.innerHeight - 12;
+    pop.style.left = `${left}px`;
+    pop.style.top = `${below ? r.bottom + 10 : Math.max(12, r.top - h - 10)}px`;
+    pop.style.setProperty('--arrow', `${r.left + r.width / 2 - left}px`);
+    pop.classList.toggle('above', !below);
+    setTimeout(() => {
+      document.addEventListener('pointerdown', outside, true);
+      document.addEventListener('keydown', onEsc);
+      window.addEventListener('scroll', close, true);
+      window.addEventListener('resize', close);
+    }, 0);
+  };
+  $$('[data-hint]', root).forEach(b => b.onclick = (e) => {
+    e.stopPropagation();
+    (pop && cur === b) ? close() : open(b);
+  });
+}
 
 /* ---------------- роутер ---------------- */
 const ROUTES = {};
@@ -2366,19 +2430,20 @@ function openSettings() {
     <div class="set-sect">Данные</div>
     <p class="set-note">Прогресс хранится только на этом устройстве. Если удалить значок с экрана
       «Домой», iOS сотрёт его вместе с приложением — поэтому время от времени сохраняйте копию.</p>
-    <div style="display:flex;gap:9px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn ghost sm" id="s-copy">${ico('clip')} Скопировать код</button>
-      <button class="btn ghost sm" id="s-paste">${ico('down')} Восстановить из кода</button>
-      <button class="btn ghost sm" id="s-export">${ico('down')} Файлом</button>
-      <button class="btn ghost sm" id="s-import">${ico('up')} Из файла</button>
-      <button class="btn ghost sm" id="s-check">${ico('search')} Проверить звук</button>
-      <button class="btn ghost sm" id="s-reset" style="color:var(--clay)">Сбросить всё</button>
+    <div class="data-acts">
+      <span class="act"><button class="btn ghost sm" id="s-copy">${ico('clip')} Скопировать код</button>${hintBtn('copy')}</span>
+      <span class="act"><button class="btn ghost sm" id="s-paste">${ico('down')} Восстановить из кода</button>${hintBtn('paste')}</span>
+      <span class="act"><button class="btn ghost sm" id="s-export">${ico('down')} Файлом</button>${hintBtn('export')}</span>
+      <span class="act"><button class="btn ghost sm" id="s-import">${ico('up')} Из файла</button>${hintBtn('import')}</span>
+      <span class="act"><button class="btn ghost sm" id="s-check">${ico('search')} Проверить звук</button>${hintBtn('check')}</span>
+      <span class="act"><button class="btn ghost sm" id="s-reset" style="color:var(--clay)">Сбросить всё</button>${hintBtn('reset')}</span>
     </div>
     <div style="display:flex;margin-top:18px">
       <button class="btn primary" id="s-close" style="margin-left:auto">Готово</button>
     </div>
   </div></div>`);
 
+  bindHints(bg);
   $$('[data-sw]', bg).forEach(node => node.onclick = () => {
     const k = node.dataset.sw;
     const tri = (k === 'refresh');
