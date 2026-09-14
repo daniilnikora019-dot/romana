@@ -98,8 +98,12 @@ input,select{font-family:inherit;font-size:inherit;color:inherit}
 }
 
 /* шапка вложенного раздела */
-.sub-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
-.sub-head h1{margin:0;font-size:23px}
+/* заголовок бывает в две строки: выравниваем по верху, иначе ссылка возврата
+   оказывается на уровне второй строки и читается как её часть */
+.sub-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
+.sub-head h1{margin:0;font-size:23px;min-width:0;padding-top:8px}
+/* заголовок бывает в две строки, и ссылка возврата не должна под него сжиматься */
+.sub-head .back-link{flex:0 0 auto;white-space:nowrap}
 .back-link{
   color:var(--accent);font-size:14px;font-weight:600;padding:8px 10px 8px 0;
   display:inline-flex;align-items:center;min-height:44px;
@@ -206,6 +210,7 @@ h2.sect + .menu-card{margin-bottom:18px}
 .menu-row .mi.accent{background:var(--accent-soft)}
 .menu-row .mi.gold{background:var(--gold-soft)}
 .menu-row .mi.green{background:var(--green-soft)}
+.menu-row .mi.slate{background:var(--slate-soft);color:var(--slate)}
 .menu-row .mt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .menu-row .mt b{font-size:14.5px;font-weight:600;letter-spacing:-.1px}
 .menu-row .mt i{font-style:normal;font-size:12.5px;color:var(--muted);line-height:1.35}
@@ -422,6 +427,78 @@ h2.sect + .menu-card{margin-bottom:18px}
 .hint-pop::before{top:-6.5px;border-width:1px 0 0 1px}
 .hint-pop::after{display:none}
 .hint-pop.above::before{top:auto;bottom:-6.5px;border-width:0 1px 1px 0}
+
+/* ---------- раздел грамматики ----------
+   Урок читается подряд, как страница книги, поэтому текст выключен влево и
+   мерой строки ограничен; таблицы спряжения прокручиваются вбок сами, чтобы
+   не ломать эту меру на узком экране. */
+.les-total{display:flex;align-items:center;gap:10px;margin:0 2px 14px}
+.les-total .bar{flex:1;height:6px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+.les-total .bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.les-total span{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.les-row{
+  width:100%;display:flex;align-items:center;gap:13px;padding:14px 16px;text-align:left;
+  background:none;transition:background .13s;
+}
+.les-row + .les-row{border-top:1px solid var(--line)}
+.les-n{
+  width:32px;height:32px;flex:0 0 32px;border-radius:50%;display:grid;place-items:center;
+  background:var(--surface-2);color:var(--muted);font-size:13.5px;font-weight:650;
+}
+.les-row.done .les-n{background:var(--green-soft);color:var(--green)}
+.les-n .icn{width:17px;height:17px;vertical-align:0;stroke-width:2.2}
+.les-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.les-t b{font-size:14.5px;font-weight:620;line-height:1.3}
+.les-t i{font-style:normal;font-size:12.5px;color:var(--muted);line-height:1.35}
+
+.les-body{
+  max-width:640px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-lg);padding:18px 18px 22px;
+}
+.les-body > :first-child{margin-top:0}
+.les-h{font-size:16px;font-weight:650;margin:24px 0 8px;letter-spacing:-.2px}
+.les-p{font-size:15px;line-height:1.62;margin:0 0 12px;color:var(--text-2)}
+.les-note{
+  background:var(--gold-soft);border:1px solid var(--gold);border-left-width:3px;
+  padding:12px 14px;border-radius:var(--r-sm);font-size:13.5px;line-height:1.55;
+  color:var(--text-2);margin:14px 0;
+}
+.les-ex{display:grid;gap:9px;margin:14px 0}
+.lex{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);padding:11px 13px}
+.lex-ka{display:flex;align-items:center;gap:9px}
+.lex-ka b{font-size:19px;font-weight:600;line-height:1.35;min-width:0;word-break:break-word}
+.lex-play{
+  width:32px;height:32px;flex:0 0 32px;margin-left:auto;border-radius:50%;
+  background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;
+}
+.lex-play .icn{width:16px;height:16px;vertical-align:0}
+.lex-tr{font-size:12.5px;color:var(--muted);letter-spacing:.3px;margin-top:2px}
+.lex-ru{font-size:13.5px;color:var(--text-2);margin-top:4px}
+.les-table{overflow-x:auto;margin:14px 0;-webkit-overflow-scrolling:touch}
+.les-table table{border-collapse:collapse;font-size:13.5px;min-width:100%}
+.les-table th,.les-table td{
+  padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+.les-table th{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.les-table td.ka,.les-table td.hy{font-size:15px;font-weight:550}
+.les-table tbody tr:last-child td{border-bottom:none}
+.les-foot{margin:26px 0 8px;max-width:640px}
+.les-foot .sub{margin:0 0 12px}
+
+/* тест по уроку */
+.quiz-card{text-align:left}
+.quiz-q{font-size:17px;font-weight:600;line-height:1.45;margin:14px 0 4px}
+.quiz-card .opt{text-align:left}
+.quiz-why{
+  margin-top:16px;padding:13px 15px;border-radius:var(--r-md);border:1px solid var(--line);
+  background:var(--surface-2);display:grid;gap:6px;text-align:left;
+}
+.quiz-why b{font-size:13.5px}
+.quiz-why.ok b{color:var(--green)}
+.quiz-why.no b{color:var(--clay)}
+.quiz-why span{font-size:13.5px;line-height:1.55;color:var(--text-2)}
+.quiz-why .btn{margin-top:6px}
+.quiz-why{scroll-margin-bottom:calc(96px + env(safe-area-inset-bottom))}
 
 /* ---------- пусто/финиш ---------- */
 .empty{text-align:center;padding:60px 20px;color:var(--muted)}
