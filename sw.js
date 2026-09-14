@@ -1,13 +1,14 @@
 importScripts('config.js');
 
 /* Офлайн-кэш: оболочка и словарь — заранее, озвучка — по мере прослушивания. */
-const SHELL = `${L.key}-shell-v5`;
+const SHELL = `${L.key}-shell-v6`;
 const AUDIO = `${L.key}-audio-v1`;
 const AUDIO_LIMIT = 1200;                    // сколько озвучек держать офлайн
 const SHELL_FILES = [
   './', './index.html', './style.css', './app.js', './config.js', './manifest.json',
   './icons/icon-192-v2.png', './icons/apple-touch-icon-v2.png',
   L.data.words, L.data.alphabet, L.data.audio, L.data.mnemonics,
+  ...(L.lessons ? [L.lessons] : []),        // раздел грамматики есть не у всех языков
 ];
 
 self.addEventListener('install', (e) => {

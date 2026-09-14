@@ -12,7 +12,7 @@ const masterReps = () => (S.prog && S.prog.set.masterReps) || MASTER_REPS_DEFAUL
 
 const S = {
   words: [], byId: new Map(), cats: [], alphabet: [], audio: {},
-  prog: null, route: 'home', session: null, audioEl: null,
+  prog: null, route: 'home', session: null, audioEl: null, lessons: null,
 };
 
 /* ---------------- прогресс ---------------- */
@@ -23,7 +23,7 @@ function defaultProgress() {
   return {
     w: {},                       // id -> {s,r,d,lr,e}
     days: {},                    // 'YYYY-MM-DD' -> {rev,new,known}
-    streak: 0, best: 0, lastActive: null, onboarded: false,
+    streak: 0, best: 0, lastActive: null, onboarded: false, les: {},
     set: {
       cats: ['greetings', 'phrases', 'numbers', 'pronouns', 'questions', 'verbs',
              'adjectives', 'family', 'food', 'time', 'adverbs'],
@@ -64,7 +64,7 @@ function loadProgress() {
     if (raw) {
       const p = JSON.parse(raw);
       p.set = Object.assign(defaultProgress().set, p.set || {});
-      p.w = p.w || {}; p.days = p.days || {}; p.pend = p.pend || [];
+      p.w = p.w || {}; p.days = p.days || {}; p.pend = p.pend || []; p.les = p.les || {};
       return p;
     }
   } catch (e) { console.warn('прогресс не прочитан', e); }
@@ -302,12 +302,13 @@ const ROUTES = {};
 /* нижняя панель: три раздела, остальные экраны — вложенные в них */
 const TAB_OF = {
   home: 'home', learn: 'home', review: 'home', mixed: 'home', browse: 'home',
-  cats: 'home', welcome: 'home',
+  cats: 'home', welcome: 'home', lessons: 'home', lesson: 'home',
   dict: 'dict', dictcat: 'dict',
   menu: 'menu', alphabet: 'menu', stats: 'menu', about: 'menu',
 };
 function go(route) {
   S.route = route; S.session = null;
+  if (route !== 'lesson') S.quiz = null;
   const tab = TAB_OF[route] || 'home';
   $$('.tab').forEach(b => b.classList.toggle('on', b.dataset.go === tab));
   window.scrollTo(0, 0);
@@ -324,10 +325,13 @@ function render() {
 }
 
 /* шапка вложенного раздела: возврат туда, откуда пришли */
-function subHead(title, back) {
+/* Заголовок вложенного экрана. Значок передаётся отдельным доводом и вставляется
+   как есть: сам заголовок всегда экранируется, поэтому склеивать их в одну строку
+   нельзя — разметка значка напечаталась бы текстом. */
+function subHead(title, back, mark) {
   return `<div class="sub-head">
     <button class="back-link" data-back="${back || 'home'}">‹ Назад</button>
-    <h1>${esc(title)}</h1></div>`;
+    <h1>${mark ? mark + ' ' : ''}${esc(title)}</h1></div>`;
 }
 function bindSubHead(box) {
   const b = box.querySelector('[data-back]');
@@ -527,6 +531,11 @@ ROUTES.home = function () {
             <span class="mt"><b>Смешанный режим</b>
               <i>Новые слова и повторение вперемешку</i></span>
             <span class="ma">›</span></button>
+          ${S.lessons ? `<button class="menu-row" data-go="lessons">
+            <span class="mi slate">${ico('book')}</span>
+            <span class="mt"><b>${esc(S.lessons.title)}</b>
+              <i>Грамматика с примерами · пройдено ${lessonsDone()} из ${S.lessons.lessons.length} уроков</i></span>
+            <span class="ma">›</span></button>` : ''}
         </div>
 
         <h2 class="sect">Дополнительно <i>не влияет на статистику</i></h2>
@@ -1292,6 +1301,153 @@ ROUTES.mixed = function () {
   }));
 };
 
+/* ---------------- раздел грамматики ----------------
+   Уроки лежат в данных (L.lessons), а не в коде: общий код не знает, о каком
+   языке они и сколько их. Порядок вопросов и вариантов задан при сборке файла,
+   поэтому урок выглядит одинаково при каждом открытии — это его свойство,
+   а не случайность: к вопросу можно вернуться и увидеть тот же вопрос.
+   Прогресс живёт в общем объекте прогресса, значит попадает и в резервную копию. */
+const lessonProg = (id) => S.prog.les[id] || { read: 0, best: 0, tries: 0 };
+const lessonDone = (id) => lessonProg(id).best >= LESSON_PASS;
+const LESSON_PASS = 8;                       // сколько верных из десяти считается сдачей
+
+function lessonsDone() {
+  return (S.lessons ? S.lessons.lessons : []).filter(l => lessonDone(l.id)).length;
+}
+
+ROUTES.lessons = function () {
+  const data = S.lessons;
+  if (!data) { go('home'); return el('<div></div>'); }
+  const total = data.lessons.length, done = lessonsDone();
+  const rows = data.lessons.map((l) => {
+    const p = lessonProg(l.id);
+    const ok = lessonDone(l.id);
+    const state = ok ? `пройден · ${p.best} из 10`
+                     : p.tries ? `лучший результат ${p.best} из 10`
+                     : p.read ? 'прочитан, тест не сдан' : 'не начат';
+    return `<button class="les-row${ok ? ' done' : ''}" data-les="${esc(l.id)}">
+      <span class="les-n">${ok ? ico('check') : l.n}</span>
+      <span class="les-t"><b>${esc(l.title)}</b><i>${esc(l.short)} · ${state}</i></span>
+      <span class="ma">›</span></button>`;
+  }).join('');
+  const box = el(`<div>
+    ${subHead(data.title, 'home')}
+    <p class="sub" style="margin:-4px 2px 16px">${esc(data.lead)}</p>
+    <div class="les-total">
+      <div class="bar"><i style="width:${total ? done / total * 100 : 0}%"></i></div>
+      <span>Пройдено ${done} из ${total}</span>
+    </div>
+    <div class="menu-card">${rows}</div>
+  </div>`);
+  bindSubHead(box);
+  $$('[data-les]', box).forEach(b => b.onclick = () => { S.lessonId = b.dataset.les; go('lesson'); });
+  return box;
+};
+
+function lessonBlocks(l) {
+  return l.blocks.map(([kind, body]) => {
+    if (kind === 'h') return `<h3 class="les-h">${esc(body)}</h3>`;
+    if (kind === 'p') return `<p class="les-p">${esc(body)}</p>`;
+    if (kind === 'note') return `<div class="les-note">${esc(body)}</div>`;
+    if (kind === 'ex') return `<div class="les-ex">${body.map(([ka, tr, ru], i) => `
+      <div class="lex">
+        <div class="lex-ka">
+          <b class="${L.script}">${esc(ka)}</b>
+          ${audioUrl(ka) ? `<button class="lex-play" data-p="${i}" title="Послушать">${ico('play')}</button>` : ''}
+        </div>
+        ${S.prog.set.translit ? `<div class="lex-tr">${esc(tr)}</div>` : ''}
+        <div class="lex-ru">${esc(ru)}</div>
+      </div>`).join('')}</div>`;
+    if (kind === 't') {
+      const [head, rows] = body;
+      return `<div class="les-table"><table>
+        <thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map(r => `<tr>${r.map(([c, native]) => `<td class="${native ? L.script : ''}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>`;
+    }
+    return '';
+  }).join('');
+}
+
+ROUTES.lesson = function () {
+  const data = S.lessons;
+  const l = data && data.lessons.find(x => x.id === S.lessonId);
+  if (!l) { go('lessons'); return el('<div></div>'); }
+  if (S.quiz && S.quiz.id === l.id) return lessonQuiz(l);
+  const p = lessonProg(l.id);
+  const box = el(`<div>
+    ${subHead(`${l.n}. ${l.title}`, 'lessons')}
+    <div class="les-body">${lessonBlocks(l)}</div>
+    <div class="les-foot">
+      <p class="sub">${p.tries ? `Вы уже проходили тест, лучший результат — ${p.best} из 10.`
+                               : 'Дальше десять вопросов по этому уроку. Их можно перепроходить.'}</p>
+      <button class="btn primary big" id="les-go">${p.tries ? 'Пройти тест ещё раз' : 'Проверить себя'}</button>
+    </div>
+  </div>`);
+  bindSubHead(box);
+  // сам факт открытия урока запоминается: список отличает прочитанное от нетронутого
+  if (!p.read) { S.prog.les[l.id] = Object.assign({}, p, { read: 1 }); saveProgress(); }
+  const ex = [];
+  l.blocks.forEach(([kind, body]) => { if (kind === 'ex') ex.push(body); });
+  $$('.les-ex', box).forEach((zone, zi) => {
+    $$('.lex-play', zone).forEach(b => b.onclick = () => speak(ex[zi][+b.dataset.p][0]));
+  });
+  $('#les-go', box).onclick = () => { S.quiz = { id: l.id, i: 0, right: 0, answered: null }; render(); };
+  return box;
+};
+
+function lessonQuiz(l) {
+  const q = S.quiz;
+  if (q.i >= l.quiz.length) {
+    const right = q.right, ok = right >= LESSON_PASS;
+    const prev = lessonProg(l.id);
+    S.prog.les[l.id] = { read: 1, best: Math.max(prev.best || 0, right), tries: (prev.tries || 0) + 1 };
+    saveProgress();
+    S.quiz = null;
+    return emptyScreen(ico(ok ? 'trophy' : 'refresh'),
+      ok ? 'Урок пройден' : 'Ещё не сдан',
+      `Верных ответов: ${right} из ${l.quiz.length}.` +
+      (ok ? '' : ` Для зачёта нужно ${LESSON_PASS}.`),
+      ok ? 'К списку уроков' : 'Пройти ещё раз',
+      ok ? () => go('lessons') : () => { S.quiz = { id: l.id, i: 0, right: 0, answered: null }; render(); },
+      ok ? 'Перечитать урок' : 'Перечитать урок',
+      () => { S.quiz = null; render(); });
+  }
+  const item = l.quiz[q.i];
+  const box = el(`<div class="trainer">
+    ${trainerHead({ progress: q.i / l.quiz.length, title: `Вопрос ${q.i + 1} из ${l.quiz.length}` })}
+    <div class="word-card quiz-card">
+      <div class="rep-label"><i class="two"></i>${esc(l.title)}</div>
+      <div class="quiz-q">${esc(item.q)}</div>
+      <div class="options" id="qopts">${item.o.map(([o, native], i) => `
+        <button class="opt${native ? ' ' + L.script : ''}" data-i="${i}">${esc(o)}</button>`).join('')}</div>
+      <div class="quiz-why" id="qwhy" hidden></div>
+    </div>
+  </div>`);
+  // кнопка «назад» шапки в тесте не нужна: шага назад здесь нет
+  const back = box.querySelector('.back-btn');
+  if (back) { back.disabled = false; back.onclick = () => { S.quiz = null; render(); }; }
+  $$('.opt', box).forEach(b => b.onclick = () => {
+    if (q.answered !== null) return;
+    q.answered = +b.dataset.i;
+    const ok = q.answered === item.a;
+    if (ok) q.right++;
+    $$('.opt', box).forEach((x, i) => {
+      x.classList.add('done');
+      if (i === item.a) x.classList.add('right');
+      else if (x === b) x.classList.add('wrong');
+    });
+    const why = $('#qwhy', box);
+    why.hidden = false;
+    why.className = 'quiz-why ' + (ok ? 'ok' : 'no');
+    why.innerHTML = `<b>${ok ? 'Верно' : 'Неверно'}</b><span>${esc(item.why)}</span>
+      <button class="btn primary block" id="q-next">${q.i + 1 < l.quiz.length ? 'Дальше →' : 'Итог'}</button>`;
+    $('#q-next', why).onclick = () => { q.i++; q.answered = null; render(); };
+    why.scrollIntoView({ block: 'end', behavior: 'smooth' });
+  });
+  return box;
+}
+
 /* ---------------- пролистать слова (без влияния на прогресс) ---------------- */
 ROUTES.browse = function () {
   if (!S.session || S.session.kind !== 'browse') {
@@ -1975,7 +2131,7 @@ ROUTES.dictcat = function () {
   const limit = S.dictCatLimit || 80;
 
   const box = el(`<div>
-    ${subHead(`${catIcon(cat.id)} ${cat.name}`, 'dict')}
+    ${subHead(cat.name, 'dict', catIcon(cat.id))}
     <p class="sub" style="margin-bottom:14px">
       ${plural(words.length, 'слово', 'слова', 'слов')} ·
       выучено ${counts.mastered} · в процессе ${counts.learning} · знаю ${counts.known}</p>
@@ -2637,7 +2793,7 @@ function applyRestored(p) {
   if (!p || typeof p !== 'object' || !p.w) throw new Error('формат');
   S.prog = p;
   S.prog.set = Object.assign(defaultProgress().set, p.set || {});
-  S.prog.w = p.w || {}; S.prog.days = p.days || {};
+  S.prog.w = p.w || {}; S.prog.days = p.days || {}; S.prog.les = p.les || {};
   S.session = null;
   dropSession();
   saveProgress();
@@ -2734,7 +2890,7 @@ async function boot() {
     if ((localStorage.getItem(THEME_KEY) || 'system') === 'system') { applyTheme(); render(); }
   });
   try {
-    const [wd, al, ai, mn, ex] = await Promise.all([
+    const [wd, al, ai, mn, ex, ls] = await Promise.all([
       fetch(L.data.words).then(r => r.json()),
       fetch(L.data.alphabet).then(r => r.json()),
       fetch(L.data.audio).then(r => r.json()).catch(() => ({})),
@@ -2742,9 +2898,11 @@ async function boot() {
       // примеры употребления есть не у всех языков и не у всех слов — их отсутствие
       // не мешает приложению работать, блок просто не рисуется
       fetch(L.data.examples).then(r => r.json()).catch(() => ({})),
+      // раздел грамматики есть не у всех языков; без него приложение работает как раньше
+      L.lessons ? fetch(L.lessons).then(r => r.json()).catch(() => null) : Promise.resolve(null),
     ]);
     S.words = wd.words; S.cats = wd.categories; S.alphabet = al; S.audio = ai;
-    S.mnemo = mn || {}; S.examples = ex || {};
+    S.mnemo = mn || {}; S.examples = ex || {}; S.lessons = ls;
     if (!Object.keys(S.audio).length) {
       setTimeout(() => toast('Озвучка не подгрузилась — обновите страницу (Cmd+Shift+R)'), 800);
     }
