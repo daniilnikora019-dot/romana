@@ -159,7 +159,7 @@ function speak(text) {
   a.play().catch(err => {
     // Safari и Chrome блокируют звук без жеста пользователя — сообщаем, а не молчим
     toast(err.name === 'NotAllowedError'
-      ? 'Браузер заблокировал звук: нажмите кнопку ▶️ ещё раз'
+      ? 'Браузер заблокировал звук: нажмите кнопку проигрывания ещё раз'
       : 'Не удалось воспроизвести: ' + err.name);
   });
 }
@@ -172,7 +172,11 @@ const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;
 const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]]; } return a; };
 const pick = (a, n) => shuffle(a.slice()).slice(0, n);
 const catName = (id) => (S.cats.find(c => c.id === id) || { name: id }).name;
-const catIcon = (id) => (S.cats.find(c => c.id === id) || { icon: '📖' }).icon;
+/* Значок раздела словаря — цветной, из открытого набора Fluent Emoji (Microsoft,
+   лицензия MIT), файлы лежат в icons/cat. Разделы у всех языков одни и те же,
+   поэтому файл называется по идентификатору раздела и общий код обходится без
+   таблицы соответствий. */
+const catIcon = (id) => `<img class="cat-ic" src="icons/cat/${encodeURIComponent(id)}.svg" alt="" loading="lazy">`;
 const plural = (n, a, b, c) => { const m = n % 100, k = n % 10; return n + ' ' + (m > 10 && m < 20 ? c : k === 1 ? a : k > 1 && k < 5 ? b : c); };
 
 function toast(msg) {
@@ -181,6 +185,52 @@ function toast(msg) {
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
+
+/* ---------------- значки ----------------
+   Свой набор вместо эмодзи: эмодзи рисует система, они разные на разных
+   устройствах и выдают чужой стиль. Здесь один язык формы: сетка 24×24,
+   только контур, скруглённые концы, ничего лишнего. Цвет наследуется от
+   текста, поэтому значок сам подстраивается под тему и под акцент. */
+const ICONS = {
+  play:    '<path d="M8.5 5.6v12.8L19 12z"/>',
+  pause:   '<path d="M9.3 5.5v13M14.7 5.5v13"/>',
+  eye:     '<path d="M2.6 12S6.2 6.2 12 6.2 21.4 12 21.4 12 17.8 17.8 12 17.8 2.6 12 2.6 12z"/><circle cx="12" cy="12" r="2.7"/>',
+  keyboard:'<rect x="2.6" y="6" width="18.8" height="12" rx="2.4"/><path d="M6.4 10h.01M9.8 10h.01M13.2 10h.01M16.6 10h.01M6.4 13.4h.01M9.8 13.4h.01M13.2 13.4h.01M16.6 13.4h.01M8.6 16.4h6.8"/>',
+  grid:    '<rect x="3.2" y="3.2" width="7.6" height="7.6" rx="1.6"/><rect x="13.2" y="3.2" width="7.6" height="7.6" rx="1.6"/><rect x="3.2" y="13.2" width="7.6" height="7.6" rx="1.6"/><rect x="13.2" y="13.2" width="7.6" height="7.6" rx="1.6"/>',
+  bulb:    '<path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.2 1.1 2h5a2.6 2.6 0 0 1 1.1-2A6 6 0 0 0 12 3z"/><path d="M9.8 19h4.4M10.7 21.3h2.6"/>',
+  check:   '<path d="M4.8 12.6 9.6 17.4 19.2 6.9"/>',
+  cross:   '<path d="M6.4 6.4 17.6 17.6M17.6 6.4 6.4 17.6"/>',
+  right:   '<path d="M4.5 12h14.2M12.8 6.1 18.7 12l-5.9 5.9"/>',
+  left:    '<path d="M19.5 12H5.3M11.2 6.1 5.3 12l5.9 5.9"/>',
+  again:   '<path d="M20.4 12a8.4 8.4 0 1 1-2.5-6"/><path d="M20.8 3.8v5.6h-5.6"/>',
+  moon:    '<path d="M20.2 14.6A8.6 8.6 0 0 1 9.4 3.8a8.6 8.6 0 1 0 10.8 10.8z"/>',
+  sun:     '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.4v2.3M12 19.3v2.3M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.4 12h2.3M19.3 12h2.3M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"/>',
+  cap:     '<path d="M12 4 2.6 8.9 12 13.8l9.4-4.9z"/><path d="M6.6 11.2v4.5c0 1.7 2.4 3 5.4 3s5.4-1.3 5.4-3v-4.5"/>',
+  book:    '<path d="M4 4.6h5.4A2.6 2.6 0 0 1 12 7.2v12.6a2.1 2.1 0 0 0-2.1-1.6H4z"/><path d="M20 4.6h-5.4A2.6 2.6 0 0 0 12 7.2v12.6a2.1 2.1 0 0 1 2.1-1.6H20z"/>',
+  sliders: '<path d="M3 7h9M16 7h5M3 12h13M20 12h1M3 17h5M12 17h9"/><circle cx="14" cy="7" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="10" cy="17" r="2"/>',
+  folder:  '<path d="M3.2 7.4a2 2 0 0 1 2-2h3.6l2 2.6h8a2 2 0 0 1 2 2v7.6a2 2 0 0 1-2 2H5.2a2 2 0 0 1-2-2z"/>',
+  spark:   '<path d="M10.2 3.2 12 8.4l5.2 1.8-5.2 1.8-1.8 5.2-1.8-5.2L3.2 10.2 8.4 8.4z"/><path d="M17.8 15.2l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
+  refresh: '<path d="M20.4 11.2A8.4 8.4 0 0 0 5.9 6.4M3.6 12.8a8.4 8.4 0 0 0 14.5 4.8"/><path d="M20.8 5.4v5.8h-5.8M3.2 18.6v-5.8H9"/>',
+  shuffle: '<path d="M4 8.6h11.6a3.6 3.6 0 0 1 0 7.2H7.6"/><path d="M6.6 6 4 8.6 6.6 11.2M10.2 13.2 7.6 15.8l2.6 2.6"/>',
+  target:  '<circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="4.4"/><circle cx="12" cy="12" r=".9"/>',
+  done:    '<circle cx="12" cy="12" r="8.4"/><path d="M8.3 12.3l2.6 2.6 4.9-5.4"/>',
+  trophy:  '<path d="M7.6 4.6h8.8v4.6a4.4 4.4 0 0 1-8.8 0z"/><path d="M7.6 6.2H5.1v1.5a3.2 3.2 0 0 0 2.9 3.2M16.4 6.2h2.5v1.5a3.2 3.2 0 0 1-2.9 3.2"/><path d="M12 13.6v3.4M8.4 19.6h7.2"/>',
+  clip:    '<path d="M9 4.6H7a2 2 0 0 0-2 2v12.4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6.6a2 2 0 0 0-2-2h-2"/><rect x="9" y="2.6" width="6" height="4" rx="1.3"/>',
+  chart:   '<path d="M4.4 19.6h15.2M7.6 16.4v-4.8M12 16.4V7.2M16.4 16.4V9.9"/>',
+  abc:     '<path d="M2.8 16.4 6.4 7.2l3.6 9.2M4 13.6h4.8"/><path d="M13.6 7.2h3.5a2.3 2.3 0 0 1 0 4.6h-3.5zM13.6 11.8h4a2.3 2.3 0 0 1 0 4.6h-4z"/>',
+  burst:   '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.6v3.2M12 18.2v3.2M2.6 12h3.2M18.2 12h3.2M5.3 5.3l2.3 2.3M16.4 16.4l2.3 2.3M18.7 5.3l-2.3 2.3M7.6 16.4l-2.3 2.3"/>',
+  leaf:    '<path d="M20.4 3.8c0 9.2-5.6 13.4-11.2 13.4a6.1 6.1 0 0 1 0-12.2c4.1 0 6.1-1 11.2-1.2z"/><path d="M4.4 20.2C7 15.4 11.2 12.2 15.8 10.2"/>',
+  thumb:   '<path d="M7.2 10.6H5a1.6 1.6 0 0 0-1.6 1.6v6.6A1.6 1.6 0 0 0 5 20.4h2.2z"/><path d="M7.2 10.6 11.4 3.4a2.2 2.2 0 0 1 2.2 2.2v3.6h4.7a2 2 0 0 1 2 2.4l-1.4 6.4a2 2 0 0 1-2 1.6H7.2z"/>',
+  fire:    '<path d="M12 21c3.6 0 6.4-2.7 6.4-6 0-4.6-4.4-6.6-3.9-11-2.6 1.5-4.1 4-4.1 6.1 0 1.5-1 2-1.6 1.2-.7-1-.9-2-.9-2.9C6.3 9.9 5.6 12.2 5.6 15c0 3.3 2.8 6 6.4 6z"/>',
+  down:    '<path d="M12 3.6v11.2M8 10.8l4 4 4-4"/><path d="M4.6 16.2v2.2a2 2 0 0 0 2 2h10.8a2 2 0 0 0 2-2v-2.2"/>',
+  up:      '<path d="M12 14.8V3.6M8 7.6l4-4 4 4"/><path d="M4.6 16.2v2.2a2 2 0 0 0 2 2h10.8a2 2 0 0 0 2-2v-2.2"/>',
+  search:  '<circle cx="10.8" cy="10.8" r="6.4"/><path d="M15.6 15.6l4.8 4.8"/>',
+  warn:    '<path d="M12 3.6 21 19.6H3z"/><path d="M12 9.8v4.2M12 17h.01"/>',
+  clock:   '<circle cx="12" cy="12" r="8.6"/><path d="M12 6.8V12l3.4 2"/>',
+};
+/* значок вставляется в разметку строкой; размер задаётся из CSS кеглем места,
+   куда он попал, поэтому один и тот же значок годится и для кнопки, и для строки */
+const ico = (n, cls) => `<svg class="icn${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 
 /* ---------------- роутер ---------------- */
 const ROUTES = {};
@@ -228,32 +278,32 @@ ROUTES.menu = function () {
 
     <div class="menu-card">
       <button class="menu-row" data-act="settings">
-        <span class="mi">⚙️</span>
+        <span class="mi">${ico('sliders')}</span>
         <span class="mt"><b>Настройки</b><i>Норма, режимы, голос и скорость речи, тема</i></span>
         <span class="ma">›</span></button>
       <button class="menu-row" data-go="stats">
-        <span class="mi accent">📊</span>
+        <span class="mi accent">${ico('chart')}</span>
         <span class="mt"><b>Подробная статистика</b>
           <i>Выучено ${c.mastered} · в процессе ${c.learning} · известно ${c.known}</i></span>
         <span class="ma">›</span></button>
       <button class="menu-row" data-go="alphabet">
-        <span class="mi gold">🔤</span>
+        <span class="mi gold">${ico('abc')}</span>
         <span class="mt"><b>Алфавит</b><i>${L.alphabet.menu}</i></span>
         <span class="ma">›</span></button>
     </div>
 
     <div class="menu-card" style="margin-top:16px">
       <button class="menu-row" id="m-sound">
-        <span class="mi">${S.prog.set.autoplay ? '▶️' : '⏸️'}</span>
+        <span class="mi">${ico(S.prog.set.autoplay ? 'play' : 'pause')}</span>
         <span class="mt"><b>Автоозвучка</b>
-          <i>${S.prog.set.autoplay ? 'слово произносится при показе' : 'выключена, кнопка ▶️ работает'}</i></span>
+          <i>${S.prog.set.autoplay ? 'слово произносится при показе' : 'выключена, кнопка проигрывания работает'}</i></span>
         <span class="ma">${S.prog.set.autoplay ? 'вкл' : 'выкл'}</span></button>
       <button class="menu-row" data-go="about">
         <span class="mi">ℹ️</span>
         <span class="mt"><b>Источники и лицензии</b><i>Откуда словарь, частотность и озвучка</i></span>
         <span class="ma">›</span></button>
       <button class="menu-row" id="m-theme">
-        <span class="mi">${document.documentElement.dataset.theme === 'dark' ? '🌙' : '☀️'}</span>
+        <span class="mi">${ico(document.documentElement.dataset.theme === 'dark' ? 'moon' : 'sun')}</span>
         <span class="mt"><b>Тема</b><i>${themePref() === 'system' ? 'как в системе' : themePref() === 'dark' ? 'тёмная' : 'светлая'}</i></span>
         <span class="ma">›</span></button>
     </div>
@@ -303,6 +353,11 @@ ROUTES.about = function () {
       ${L.about.corpus}</p>
 
       ${L.about.tts}
+
+      <h2>Значки</h2>
+      <p class="sub">Значки разделов словаря — из открытого набора Fluent Emoji
+      (Microsoft, лицензия MIT). Остальные значки интерфейса нарисованы для этого
+      приложения.</p>
 
       <h2>Проверка</h2>
       <p class="sub">${L.about.check}</p>
@@ -386,24 +441,24 @@ ROUTES.home = function () {
         <h2 class="sect">Интервальное повторение</h2>
         <div class="menu-card">
           <button class="menu-row" data-go="cats">
-            <span class="mi">🗂</span>
+            <span class="mi">${ico('folder')}</span>
             <span class="mt"><b>Выбрано ${plural(S.prog.set.cats.length, 'категория', 'категории', 'категорий')}</b>
               <i>${poolWords().length} слов в работе · уровни ${S.prog.set.levels.join(' ')}</i></span>
             <span class="ma">›</span></button>
           <button class="menu-row" data-act="learn">
-            <span class="mi accent">✨</span>
+            <span class="mi accent">${ico('spark')}</span>
             <span class="mt"><b>${unfinished ? 'Закрепить начатое' : 'Учить новые слова'}</b>
               <i>${unfinished
                 ? `${plural(unfinished, 'слово ждёт', 'слова ждут', 'слов ждут')} закрепления`
                 : `Закреплено сегодня: ${goalText(t.drilled, goalNew)}${c.fresh ? ` · доступно ${c.fresh}` : ''}`}</i></span>
             <span class="ma">${unfinished || newLeftToday() || ''} ›</span></button>
           <button class="menu-row" data-act="review">
-            <span class="mi gold">🔄</span>
+            <span class="mi gold">${ico('refresh')}</span>
             <span class="mt"><b>Повторить слова</b>
               <i>Слов для повторения: ${c.due}${t.rev ? ` · сегодня повторено ${t.rev}` : ''}</i></span>
             <span class="ma">${c.due || ''} ›</span></button>
           <button class="menu-row" data-act="mixed">
-            <span class="mi green">💡</span>
+            <span class="mi green">${ico('bulb')}</span>
             <span class="mt"><b>Смешанный режим</b>
               <i>Новые слова и повторение вперемешку</i></span>
             <span class="ma">›</span></button>
@@ -412,7 +467,7 @@ ROUTES.home = function () {
         <h2 class="sect">Дополнительно <i>не влияет на статистику</i></h2>
         <div class="menu-card">
           <button class="menu-row" data-act="browse">
-            <span class="mi">🔁</span>
+            <span class="mi">${ico('shuffle')}</span>
             <span class="mt"><b>Пролистать слова</b><i>Просмотр карточек без оценок</i></span>
             <span class="ma">›</span></button>
         </div>
@@ -591,7 +646,7 @@ function afterAnswer(box, card, ok, w, done) {
   const panel = el(`<div class="after-answer ${ok ? 'ok' : 'no'}">
     ${ok
       ? `<button class="btn ghost" data-a="again">↺ Показать ещё раз</button>
-         <button class="btn success" data-a="next">✓ Я запомнил</button>`
+         <button class="btn success" data-a="next">${ico('check')} Я запомнил</button>`
       : `<button class="btn primary block" data-a="again">↺ Повторить ещё раз</button>`}
   </div>`);
   const go = (again) => { panel.remove(); done(again); };
@@ -613,7 +668,7 @@ function wordCardHTML(w, opts = {}) {
     <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span>
     <div class="word-ka ka">${opts.hideKa ? '•••' : esc(w.ka)}</div>
     ${opts.hideKa ? '' : tr}
-    <button class="speak ${opts.bigSpeak ? 'lg' : ''}" title="Произношение (пробел)">▶️</button>
+    <button class="speak ${opts.bigSpeak ? 'lg' : ''}" title="Произношение (пробел)">${ico('play')}</button>
     ${opts.ru ? `<div class="word-ru">${esc(w.ru)}</div>` : ''}
   </div>`;
 }
@@ -621,7 +676,7 @@ function wordCardHTML(w, opts = {}) {
    если для слова её нет, тренировка работает ровно как раньше. */
 function mnemoHTML() {
   return `<div class="mnemo-wrap">
-    <button class="btn ghost sm mnemo-btn">💡 Ассоциация</button>
+    <button class="btn ghost sm mnemo-btn">${ico('bulb')} Ассоциация</button>
     <div class="mnemo" hidden></div>
   </div>`;
 }
@@ -633,7 +688,7 @@ function bindMnemo(root, w) {
     const text = (S.mnemo || {})[w.ka];
     box.hidden = false;
     box.innerHTML = text
-      ? `💡 ${esc(text)}`
+      ? `${ico('bulb')} ${esc(text)}`
       : '<span style="color:var(--muted)">Для этого слова ассоциации пока нет — они добавляются постепенно.</span>';
     btn.disabled = true;
   };
@@ -642,10 +697,10 @@ function hasMnemo(w) { return !!(S.mnemo || {})[w.ka]; }
 
 /* Перевод под глазком. Карточка должна сперва дать шанс вспомнить слово самому:
    если перевод виден сразу, проверки знания не получается — глаз читает его раньше,
-   чем успеваешь вспомнить. Тот же приём, что кнопка 👁 в режиме повторения. */
+   чем успеваешь вспомнить. Тот же приём, что глазок в режиме повторения. */
 function revealHTML(text, label = 'Показать перевод') {
   return `<div class="reveal">
-    <button class="btn ghost sm reveal-btn">👁 ${label}</button>
+    <button class="btn ghost sm reveal-btn">${ico('eye')} ${label}</button>
     <div class="word-ru reveal-text" hidden>${esc(text)}</div>
   </div>`;
 }
@@ -660,7 +715,7 @@ function examplesHTML(w) {
   return `<div class="examples">${list.map((p, i) => `
     <div class="ex">
       <button class="ex-toggle" data-i="${i}"><i></i><span>${mark(p[0])}</span></button>
-      ${audioUrl(p[0]) ? `<button class="ex-play" data-i="${i}" title="Послушать">▶️</button>` : ''}
+      ${audioUrl(p[0]) ? `<button class="ex-play" data-i="${i}" title="Послушать">${ico('play')}</button>` : ''}
       <div class="ex-ru" hidden>${esc(p[1])}</div>
     </div>`).join('')}</div>`;
 }
@@ -698,8 +753,8 @@ function bindSpeak(root, text) {
 
 /* Звук не должен выдавать ответ. Если на карточке показано русское слово, а вспомнить
    нужно изучаемое, то произнести его вслух — то же самое, что показать: и автоозвучка,
-   и кнопка ▶️, и пробел молчат, пока ответ не открыт. */
-/* Варианты ответа. Если они на изучаемом языке, у каждого своя кнопка ▶️:
+   и кнопка проигрывания, и пробел молчат, пока ответ не открыт. */
+/* Варианты ответа. Если они на изучаемом языке, у каждого своя кнопка проигрывания:
    послушать все четыре полезно и до ответа — на слух слова и путаются чаще
    всего, — а какой из них верный, звук не выдаёт. Для русских переводов
    кнопки нет: озвучки для них не существует. */
@@ -710,7 +765,7 @@ function optionsHTML(options, field, numbered) {
     const btn = `<button class="opt ${playable ? 'ka' : ''}" data-i="${i}">${label}</button>`;
     if (!playable || !audioUrl(x.ka)) return btn;
     return `<div class="opt-row">${btn}` +
-           `<button class="opt-play" data-p="${i}" title="Послушать">▶️</button></div>`;
+           `<button class="opt-play" data-p="${i}" title="Послушать">${ico('play')}</button></div>`;
   }).join('')}</div>`;
 }
 function bindOptionPlay(root, options) {
@@ -818,12 +873,12 @@ ROUTES.learn = function () {
       return learnDrill();
     }
     const q = newQueue();
-    if (!q.length) return emptyScreen('✨', 'Новых слов нет',
+    if (!q.length) return emptyScreen(ico('spark'), 'Новых слов нет',
       'В выбранных категориях и уровнях всё уже пройдено. Добавьте категории или уровни — и новые слова появятся.',
       'Выбрать категории', () => go('cats'));
     const left = newLeftToday();
     if (left <= 0 && !S.extraNew) {
-      return emptyScreen('🎯', 'Дневная норма выполнена',
+      return emptyScreen(ico('target'), 'Дневная норма выполнена',
         `Сегодня закреплено ${plural(dayRec(today()).drilled, 'новое слово', 'новых слова', 'новых слов')}. ` +
         'Можно повторить пройденное или продолжить сверх нормы.',
         'Повторять', () => go('review'),
@@ -933,7 +988,7 @@ function newWordCard(w, o) {
         <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span></div>
       <div class="word-ka ka">${esc(w.ka)}</div>
       ${S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
-      <button class="speak" title="Произношение (пробел)">▶️</button>
+      <button class="speak" title="Произношение (пробел)">${ico('play')}</button>
       ${revealHTML(w.ru)}
       <div id="ex-slot" hidden>${examplesHTML(w)}</div>
       ${mnemoHTML()}
@@ -957,7 +1012,7 @@ function newWordCard(w, o) {
   box.querySelector('[data-a=known]').onclick = () => act('known');
   box.querySelector('[data-a=learn]').onclick = () => act('learn');
   bindSwipe(box.querySelector('.word-card'), {
-    rightLabel: '📚 Учить', leftLabel: '✓ Уже знаю',
+    rightLabel: 'Учить', leftLabel: 'Уже знаю',
     onRight: () => act('learn'), onLeft: () => act('known'),
   });
   S.session.keys = (e) => {
@@ -976,7 +1031,7 @@ function learnDrill() {
   if (!w) {
     const n = s.toTrain.length;
     S.session = null;
-    return emptyScreen('🎉', 'Порция пройдена!',
+    return emptyScreen(ico('burst'), 'Порция пройдена!',
       `Взято в изучение: ${plural(n, 'слово', 'слова', 'слов')}. Они вернутся на повторение по расписанию.`,
       'Следующая порция', () => { S.batch = null; go('learn'); }, 'На главную', () => go('home'));
   }
@@ -1017,7 +1072,7 @@ ROUTES.review = function () {
       const nextDue = S.words.map(w => wp(w.id)).filter(p => p.s === 'learning' && p.d > Date.now())
         .sort((a, b) => a.d - b.d)[0];
       const when = nextDue ? formatIn(nextDue.d - Date.now()) : null;
-      return emptyScreen('🔄', 'Повторять пока нечего',
+      return emptyScreen(ico('refresh'), 'Повторять пока нечего',
         when ? `Ближайшее повторение через ${when}. Пока можно взять новые слова.`
              : 'Возьмите новые слова — и они появятся здесь на повторение.',
         c.fresh ? 'Учить новые слова' : 'К категориям', () => go(c.fresh ? 'learn' : 'cats'));
@@ -1031,7 +1086,7 @@ ROUTES.review = function () {
   if (!w) {
     const words = s.words, missed = s.missed.size;
     S.session = null;
-    return emptyScreen(missed ? '✅' : '🏆', 'Повторение завершено',
+    return emptyScreen(ico(missed ? 'done' : 'trophy'), 'Повторение завершено',
       `Повторено ${plural(words, 'слово', 'слова', 'слов')}` +
       (missed ? ` · сразу вспомнили ${words - missed}, с ошибкой ${missed}`
               : ' — все с первого раза'),
@@ -1053,7 +1108,7 @@ ROUTES.review = function () {
       const res = answerGrade(w, ok);
       ok ? s.right++ : s.wrong++;
       ok ? s.left.delete(w.id) : s.missed.add(w.id);
-      if (res.s === 'mastered') toast(`🎓 «${w.ka}» выучено полностью!`);
+      if (res.s === 'mastered') toast(`«${w.ka}» выучено полностью!`);
       // Слово не покидает сессию, пока не будет названо верно: иначе повторение
       // заканчивалось с неотработанными ошибками — ровно то же правило, что в
       // закреплении новых слов. Возвращается в конец очереди, а не сразу.
@@ -1078,7 +1133,7 @@ ROUTES.mixed = function () {
     const fresh = newQueue().slice(0, Math.max(0, Math.min(left, st.newPerDay)));
     const due = dueQueue().slice(0, st.reviewPerDay);
     if (!fresh.length && !due.length) {
-      return emptyScreen('🌿', 'На сегодня всё',
+      return emptyScreen(ico('leaf'), 'На сегодня всё',
         'Новых слов по норме больше нет, и повторять пока нечего. Возвращайтесь позже — или добавьте категории.',
         'К категориям', () => go('cats'), 'На главную', () => go('home'));
     }
@@ -1097,7 +1152,7 @@ ROUTES.mixed = function () {
   if (!item) {
     const { newWords, words, missed } = { ...s, missed: s.missed.size };
     S.session = null;
-    return emptyScreen('✅', 'Занятие завершено',
+    return emptyScreen(ico('done'), 'Занятие завершено',
       (() => {
         const parts = [newWords ? `новых слов: ${newWords}` : '',
                        words ? `повторено: ${plural(words, 'слово', 'слова', 'слов')}` : '',
@@ -1131,7 +1186,7 @@ ROUTES.mixed = function () {
       const res = answerGrade(w, ok);
       ok ? s.right++ : s.wrong++;
       ok ? s.left.delete(w.id) : s.missed.add(w.id);
-      if (res.s === 'mastered') toast(`🎓 «${w.ka}» выучено полностью!`);
+      if (res.s === 'mastered') toast(`«${w.ka}» выучено полностью!`);
       if (!ok || again) { s.queue.push({ type: 'review', w }); s.total++; }
       s.i++; render();
     },
@@ -1142,7 +1197,7 @@ ROUTES.mixed = function () {
 ROUTES.browse = function () {
   if (!S.session || S.session.kind !== 'browse') {
     const pool = poolWords().filter(w => w.q);
-    if (!pool.length) return emptyScreen('🗂', 'Нет слов для просмотра',
+    if (!pool.length) return emptyScreen(ico('folder'), 'Нет слов для просмотра',
       'Выберите категории и уровни — и слова появятся здесь.', 'К категориям', () => go('cats'));
     S.session = { kind: 'browse', queue: shuffle(pool.slice()), i: 0, hist: [] };
   }
@@ -1156,7 +1211,7 @@ ROUTES.browse = function () {
         <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span></div>
       <div class="word-ka ka">${esc(w.ka)}</div>
       ${S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
-      <button class="speak lg" title="Произношение">▶️</button>
+      <button class="speak lg" title="Произношение">${ico('play')}</button>
       ${revealHTML(w.ru)}
       ${mnemoHTML()}
     </div>
@@ -1201,7 +1256,7 @@ function exerciseChoice(w, mode, o) {
   const promptHTML = mode === 'listen'
     ? `<div class="word-card"><span class="lvl">${w.lvl}</span>
          <div class="word-ka" style="font-size:30px;color:var(--muted)">Послушайте слово</div>
-         <button class="speak lg" title="Повторить">▶️</button></div>`
+         <button class="speak lg" title="Повторить">${ico('play')}</button></div>`
     : askKa
       ? `<div class="word-card"><span class="lvl">${w.lvl}</span>
            <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span>
@@ -1262,7 +1317,7 @@ function exerciseRecall(w, o) {
       <span class="lvl">${w.lvl}</span>
       <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span>
       ${front}
-      <button class="speak lg" title="Произношение (пробел)">▶️</button>
+      <button class="speak lg" title="Произношение (пробел)">${ico('play')}</button>
       <div id="answer" hidden>
         <div class="word-ru">${esc(backwards ? w.ka : w.ru)}</div>
         ${backwards && S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
@@ -1274,8 +1329,8 @@ function exerciseRecall(w, o) {
     </div>
     <div id="mnemo-slot" hidden>${mnemoHTML()}</div>
     <div class="answer-actions" id="stage-grade" hidden>
-      <button class="btn ghost" data-a="no" style="color:var(--clay);border-color:var(--clay)">✗ Не вспомнил</button>
-      <button class="btn success" data-a="yes">✓ Вспомнил</button>
+      <button class="btn ghost" data-a="no" style="color:var(--clay);border-color:var(--clay)">${ico('cross')} Не вспомнил</button>
+      <button class="btn success" data-a="yes">${ico('check')} Вспомнил</button>
     </div>
   </div>`);
   const speakWord = () => speak(w.ka);
@@ -1332,7 +1387,7 @@ function exerciseTyping(w, o) {
       <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span>
       <div class="word-ka" style="font-size:27px">${esc(w.ru)}</div>
       <div class="word-tr">${L.ask.type}</div>
-      <button class="speak lg" title="Произношение">▶️</button>
+      <button class="speak lg" title="Произношение">${ico('play')}</button>
       <div class="typing">
         <input type="text" id="ans" autocomplete="off" autocorrect="off" autocapitalize="off"
                spellcheck="false" placeholder="напишите слово">
@@ -1356,8 +1411,8 @@ function exerciseTyping(w, o) {
     verdict.hidden = false;
     verdict.className = 'typing-verdict ' + (ok ? 'ok' : 'no');
     verdict.innerHTML = ok
-      ? `✓ Верно — <b class="ka">${esc(w.ka)}</b> <span>${esc(w.tr)}</span>`
-      : `✗ Правильно так: <b class="ka">${esc(w.ka)}</b> <span>${esc(w.tr)}</span>` +
+      ? `${ico('check')} Верно — <b class="ka">${esc(w.ka)}</b> <span>${esc(w.tr)}</span>`
+      : `${ico('cross')} Правильно так: <b class="ka">${esc(w.ka)}</b> <span>${esc(w.tr)}</span>` +
         (typed ? `<br><span class="was">вы написали: ${esc(typed)}</span>` : '');
     speak(w.ka);
     $$('.answer-actions .btn', box).forEach(b => b.disabled = true);
@@ -1395,7 +1450,7 @@ function exerciseReview(w, o) {
         <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span></div>
       <div class="word-ka ${askKa ? 'ka' : ''}" style="${askKa ? '' : 'font-size:30px'}">${esc(front)}</div>
       ${askKa && S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
-      <button class="speak" title="Произношение (пробел)">▶️</button>
+      <button class="speak" title="Произношение (пробел)">${ico('play')}</button>
       <div class="reveal" id="reveal" hidden>
         <div class="word-ru ${askKa ? '' : 'ka'}">${esc(answer)}</div>
         ${!askKa && S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
@@ -1403,9 +1458,9 @@ function exerciseReview(w, o) {
       <div class="zone" id="zone" hidden></div>
       <div id="mnemo-slot" hidden>${mnemoHTML()}</div>
       <div class="tools" id="tools">
-        <button data-t="type" title="Написать слово">⌨︎</button>
-        <button data-t="look" title="Посмотреть ответ">👁</button>
-        <button data-t="pick" title="Выбрать из четырёх">▦</button>
+        <button data-t="type" title="Написать слово">${ico('keyboard')}</button>
+        <button data-t="look" title="Посмотреть ответ">${ico('eye')}</button>
+        <button data-t="pick" title="Выбрать из четырёх">${ico('grid')}</button>
       </div>
       <div class="grade-row" id="grade">
         <button data-g="no"><b>Я не вспомнил</b><span>это слово</span></button>
@@ -1434,7 +1489,7 @@ function exerciseReview(w, o) {
     // Инструменты проверки после ответа не нужны, а место занимают: убираем их,
     // чтобы карточка вместе с оценкой помещалась на экран без прокрутки.
     tools.hidden = true;
-    // Если у вариантов есть свои ▶️, верхняя кнопка озвучки их дублирует —
+    // Если у вариантов есть свои кнопки звука, верхняя их дублирует —
     // убираем и её, это ещё сорок с лишним пикселей в пользу строки оценки.
     if (zone.querySelector('.opt-play')) {
       const top = box.querySelector('.review-card > .speak');
@@ -1453,7 +1508,7 @@ function exerciseReview(w, o) {
     setTimeout(bring, 450);
   };
 
-  // глазок только открывает ответ; произнести — отдельная кнопка ▶️, она тут же появляется
+  // глазок только открывает ответ; произнести — отдельная кнопка, она тут же появляется
   // ассоциация открывается вместе с ответом: подсказка по созвучию имеет смысл,
   // когда слово уже перед глазами, а до ответа она его выдала бы
   const showMnemo = () => {
@@ -1551,7 +1606,7 @@ function exerciseBuild(w, o) {
       <span class="lvl">${w.lvl}</span>
       <div class="word-ka" style="font-size:26px">${esc(w.ru)}</div>
       <div class="word-tr">соберите слово по буквам${S.prog.set.translit ? ' · ' + esc(w.tr) : ''}</div>
-      <button class="speak lg">▶️</button>
+      <button class="speak lg">${ico('play')}</button>
       <div class="slot ka" id="slot"></div>
       <div class="letters ka">${chars.map((c, i) => `<button data-c="${esc(c)}" data-i="${i}">${esc(c)}</button>`).join('')}</div>
     </div>
@@ -1648,10 +1703,10 @@ ROUTES.cats = function () {
       const pc = (n) => s.total ? (n / s.total * 100).toFixed(1) + '%' : '0%';
       const done = s.total ? Math.round(s.m / s.total * 100) : 0;
       return `<div class="cat-card ${st.cats.includes(c.id) ? 'on' : ''}" data-cat="${c.id}">
-        <div class="top"><span class="ic">${c.icon}</span>
+        <div class="top"><span class="ic">${catIcon(c.id)}</span>
           <div class="cat-title"><div class="nm">${esc(c.name)}</div>
             <div class="cnt">${s.total} слов на выбранных уровнях</div></div>
-          <span class="check">✓</span></div>
+          <span class="check">${ico('check')}</span></div>
         <div class="cat-bar">
           <i class="m" style="width:${pc(s.m)}"></i><i class="l" style="width:${pc(s.l)}"></i><i class="k" style="width:${pc(s.k)}"></i>
         </div>
@@ -1706,12 +1761,12 @@ function wordRowHTML(w) {
   const [label, cls] = wordStatus(w);
   return `<div class="wcard ${cls}" data-id="${w.id}">
     <div class="wmain">
-      <div class="wstatus">${label}${hasMnemo(w) ? ' · 💡' : ''}<span class="wlvl">${w.lvl}</span></div>
+      <div class="wstatus">${label}${hasMnemo(w) ? ' · ' + ico('bulb') : ''}<span class="wlvl">${w.lvl}</span></div>
       <div class="wword ka">${esc(w.ka)}</div>
       ${S.prog.set.translit ? `<div class="wtr">${esc(w.tr)}</div>` : ''}
       <div class="wru">${esc(w.ru)}</div>
     </div>
-    <button class="wplay" data-a="speak" title="Произношение">▶</button>
+    <button class="wplay" data-a="speak" title="Произношение">${ico('play')}</button>
   </div>`;
 }
 
@@ -1724,10 +1779,10 @@ function bindWordRows(root) {
       if (open && open.classList.contains('wdetails')) { open.remove(); return; }
       $$('.wdetails', root).forEach(x => x.remove());
       const det = el(`<div class="wdetails">
-        ${hasMnemo(w) ? `<div class="mnemo">💡 ${esc(S.mnemo[w.ka])}</div>` : ''}
+        ${hasMnemo(w) ? `<div class="mnemo">${ico('bulb')} ${esc(S.mnemo[w.ka])}</div>` : ''}
         <div class="wactions">
-          <button class="btn ghost sm" data-a="learn">📚 Учить</button>
-          <button class="btn ghost sm" data-a="known">✓ Уже знаю</button>
+          <button class="btn ghost sm" data-a="learn">${ico('cap')} Учить</button>
+          <button class="btn ghost sm" data-a="known">${ico('check')} Уже знаю</button>
           <button class="btn ghost sm" data-a="reset">↺ Сбросить</button>
         </div></div>`);
       det.onclick = (ev) => {
@@ -1767,7 +1822,7 @@ ROUTES.dict = function () {
     }).filter(r => r.total);
     out.innerHTML = `<div class="cat-list">${rows.map(r => `
       <button class="cat-line" data-cat="${r.c.id}">
-        <span class="ic">${r.c.icon}</span>
+        <span class="ic">${catIcon(r.c.id)}</span>
         <span class="nm"><b>${esc(r.c.name)}</b><i>${plural(r.total, 'слово', 'слова', 'слов')}</i></span>
         <span class="pct ${r.pct ? '' : 'zero'}">${r.pct}%</span>
         <span class="chev">›</span>
@@ -1821,7 +1876,7 @@ ROUTES.dictcat = function () {
   const limit = S.dictCatLimit || 80;
 
   const box = el(`<div>
-    ${subHead(`${cat.icon} ${cat.name}`, 'dict')}
+    ${subHead(`${catIcon(cat.id)} ${cat.name}`, 'dict')}
     <p class="sub" style="margin-bottom:14px">
       ${plural(words.length, 'слово', 'слова', 'слов')} ·
       выучено ${counts.mastered} · в процессе ${counts.learning} · знаю ${counts.known}</p>
@@ -1857,7 +1912,7 @@ ROUTES.alphabet = function () {
     ${subHead(L.alphabet.title, 'menu')}
     <div class="page-head">
       <div><p class="sub">${L.alphabet.lead}</p></div>
-      <button class="btn primary" id="a-quiz">🎯 Тренировка букв</button>
+      <button class="btn primary" id="a-quiz">${ico('target')} Тренировка букв</button>
     </div>
     <div class="card" style="margin-bottom:16px;font-size:13.5px;line-height:1.6;color:var(--muted)">
       ${L.alphabet.note}
@@ -1884,7 +1939,7 @@ function alphabetQuiz() {
   const q = S.alphaQuiz, a = q.queue[q.i];
   if (!a) {
     const r = q.right, t = q.total; S.alphaQuiz = null;
-    return emptyScreen(r === t ? '🏆' : '👍', 'Тренировка букв завершена', `Правильно: ${r} из ${t}`,
+    return emptyScreen(ico(r === t ? 'trophy' : 'thumb'), 'Тренировка букв завершена', `Правильно: ${r} из ${t}`,
       'Ещё раз', () => { S.alphaQuiz = { i: 0, right: 0, total: 12, queue: pick(S.alphabet, 12) }; render(); },
       'К алфавиту', () => render());
   }
@@ -1894,7 +1949,7 @@ function alphabetQuiz() {
     <p class="sub" style="text-align:center;margin-bottom:14px">Буква ${q.i + 1} из ${q.total}</p>
     <div class="word-card">
       <div class="word-ka ka" style="font-size:64px">${a[0]}</div>
-      <button class="speak lg">▶️</button>
+      <button class="speak lg">${ico('play')}</button>
       <div class="word-tr">какой это звук?</div>
     </div>
     <div class="options">${opts.map((o, i) => `<button class="opt" data-i="${i}">${i + 1}. <b>${esc(o[3])}</b> — ${esc(o[4])}</button>`).join('')}</div>
@@ -2205,7 +2260,7 @@ ROUTES.stats = function () {
       <div class="stat purple"><div class="n num">${c.known}</div><div class="l">Уже известные</div></div>
       <div class="stat blue"><div class="n num">${((c.mastered + c.known + c.learning) / c.total * 100).toFixed(1)}%</div>
         <div class="l">Охват словаря</div></div>
-      <div class="stat"><div class="n num">🔥 ${S.prog.streak}</div><div class="l">Серия дней · рекорд ${S.prog.best || 0}</div></div>
+      <div class="stat"><div class="n num">${ico('fire')} ${S.prog.streak}</div><div class="l">Серия дней · рекорд ${S.prog.best || 0}</div></div>
       <div class="stat"><div class="n num">${activeDays ? (sum('rev') / Math.max(1, activeDays)).toFixed(1) : 0}</div>
         <div class="l">Слов в активный день</div></div>
     </div>
@@ -2241,7 +2296,7 @@ ROUTES.stats = function () {
         }).join('')}</div></div>
       <div class="chart-card"><h3>По категориям</h3><p class="cap">Доля полностью выученных слов темы · все ${S.cats.length} категорий</p>
         <div class="cat-progress">${catRows.map(r => `
-          <div class="cp-row"><span class="nm">${r.cat.icon} ${esc(r.cat.name)}</span>
+          <div class="cp-row"><span class="nm">${catIcon(r.cat.id)} ${esc(r.cat.name)}</span>
             <span class="bar"><i style="width:${r.total ? r.m / r.total * 100 : 0}%;background:var(--green)"></i>
             <i style="width:${r.total ? r.l / r.total * 100 : 0}%;background:var(--gold)"></i>
             <i style="width:${r.total ? r.k / r.total * 100 : 0}%;background:var(--slate)"></i></span>
@@ -2312,11 +2367,11 @@ function openSettings() {
     <p class="set-note">Прогресс хранится только на этом устройстве. Если удалить значок с экрана
       «Домой», iOS сотрёт его вместе с приложением — поэтому время от времени сохраняйте копию.</p>
     <div style="display:flex;gap:9px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn ghost sm" id="s-copy">📋 Скопировать код</button>
-      <button class="btn ghost sm" id="s-paste">📥 Восстановить из кода</button>
-      <button class="btn ghost sm" id="s-export">⬇︎ Файлом</button>
-      <button class="btn ghost sm" id="s-import">⬆︎ Из файла</button>
-      <button class="btn ghost sm" id="s-check">🔎 Проверить звук</button>
+      <button class="btn ghost sm" id="s-copy">${ico('clip')} Скопировать код</button>
+      <button class="btn ghost sm" id="s-paste">${ico('down')} Восстановить из кода</button>
+      <button class="btn ghost sm" id="s-export">${ico('down')} Файлом</button>
+      <button class="btn ghost sm" id="s-import">${ico('up')} Из файла</button>
+      <button class="btn ghost sm" id="s-check">${ico('search')} Проверить звук</button>
       <button class="btn ghost sm" id="s-reset" style="color:var(--clay)">Сбросить всё</button>
     </div>
     <div style="display:flex;margin-top:18px">
@@ -2498,7 +2553,7 @@ function showCode(code) {
     <p class="set-note">Скопируйте текст целиком и сохраните его, например в Заметках.</p>
     <textarea id="s-code-out" rows="6" readonly></textarea>
     <div style="display:flex;gap:9px;margin-top:14px">
-      <button class="btn ghost sm" id="s-code-copy">📋 Скопировать</button>
+      <button class="btn ghost sm" id="s-code-copy">${ico('clip')} Скопировать</button>
       <button class="btn primary sm" id="s-code-done" style="margin-left:auto">Готово</button>
     </div>
   </div></div>`);
@@ -2524,16 +2579,53 @@ function applyTheme() {
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   const btn = $('#theme-btn');
   if (btn) {
-    btn.textContent = dark ? '☀️' : '🌙';
+    btn.innerHTML = ico(dark ? 'sun' : 'moon');
     btn.title = pref === 'system' ? 'Тема: как в системе' : (dark ? 'Тёмная тема' : 'Светлая тема');
   }
   return dark;
 }
 
 /* ---------------- запуск ---------------- */
+/* ---------------- фоновый узор ----------------
+   Буквы родного письма мелкой сеткой — своя «монограмма» вместо однотонного
+   фона. Общий код не знает, какое здесь письмо: буквы, шаг и кегль приходят
+   из config.js, цвет — из темы. Слой лежит под содержимым и не прокручивается,
+   поэтому узор виден только в промежутках между карточками. */
+function paintWallpaper() {
+  const p = L.pattern || {};
+  const glyphs = String(p.glyphs || '').trim().split(/\s+/).filter(Boolean);
+  let layer = document.getElementById('wallpaper');
+  if (!glyphs.length) { if (layer) layer.remove(); return; }
+  if (!layer) {
+    layer = el('<div id="wallpaper" aria-hidden="true"></div>');
+    document.body.insertBefore(layer, document.body.firstChild);
+  }
+  const step = p.step || 44;
+  // слой шире экрана на клетку с каждой стороны, чтобы у краёв не было пустой полосы
+  const cols = Math.ceil(window.innerWidth / step) + 2;
+  const rows = Math.ceil(window.innerHeight / step) + 2;
+  let html = '';
+  for (let y = 0; y < rows; y++) {
+    // каждый второй ряд сдвинут на половину шага: сетка читается ромбом,
+    // а рядами буквы складывались бы в строку текста
+    html += `<div class="wp-row"${y % 2 ? ` style="margin-left:${step / 2}px"` : ''}>`;
+    for (let x = 0; x < cols; x++) {
+      const ch = glyphs[(x + y * 3) % glyphs.length];
+      const rev = p.flip && (x + y) % 2;
+      html += `<span${rev ? ' class="rev"' : ''}>${esc(ch)}</span>`;
+    }
+    html += '</div>';
+  }
+  layer.className = L.script;
+  layer.style.setProperty('--wp-step', step + 'px');
+  layer.style.setProperty('--wp-size', (p.size || 21) + 'px');
+  layer.innerHTML = html;
+}
+
 async function boot() {
   S.prog = loadProgress();
   applyTheme();
+  paintWallpaper();
   // следим за переключением тёмной темы в системе, пока пользователь не выбрал явно
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
   mq.addEventListener('change', () => {
@@ -2562,7 +2654,7 @@ async function boot() {
       S.byCat.get(c).push(w);
     }
   } catch (e) {
-    $('#main').innerHTML = `<div class="empty"><div class="ico">⚠️</div><h3>Не удалось загрузить словарь</h3>
+    $('#main').innerHTML = `<div class="empty"><div class="ico">${ico('warn')}</div><h3>Не удалось загрузить словарь</h3>
       <p>${L.launcherHint}</p></div>`;
     return;
   }
@@ -2572,7 +2664,10 @@ async function boot() {
     if (S.alphaQuiz && S.alphaKeys) S.alphaKeys(e);
     else if (S.session && S.session.keys) S.session.keys(e);
   });
-  window.addEventListener('resize', () => { if (S.route === 'stats' || S.route === 'home') render(); });
+  window.addEventListener('resize', () => {
+    paintWallpaper();                               // сетка узора считается от размера экрана
+    if (S.route === 'stats' || S.route === 'home') render();
+  });
   go(S.prog.onboarded ? 'home' : 'welcome');
 }
 boot();

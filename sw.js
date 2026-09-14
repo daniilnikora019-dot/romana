@@ -1,7 +1,7 @@
 importScripts('config.js');
 
 /* Офлайн-кэш: оболочка и словарь — заранее, озвучка — по мере прослушивания. */
-const SHELL = `${L.key}-shell-v4`;
+const SHELL = `${L.key}-shell-v5`;
 const AUDIO = `${L.key}-audio-v1`;
 const AUDIO_LIMIT = 1200;                    // сколько озвучек держать офлайн
 const SHELL_FILES = [
