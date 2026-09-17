@@ -2979,6 +2979,17 @@ function paintWallpaper() {
   layer.innerHTML = html;
 }
 
+/* Касание по полосе состояния — той, где часы, — поднимает страницу наверх,
+   как это делают системные приложения. Приложение с экрана «Домой» занимает
+   и эту полосу, поэтому касание по ней доходит до страницы. Полоса ровно такой
+   высоты, какую система отвела под вырез: на устройствах без выреза высота
+   нулевая, и полоса ничему не мешает. */
+function bindStatusBarTap() {
+  const strip = el('<div id="to-top" aria-hidden="true"></div>');
+  strip.onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.body.appendChild(strip);
+}
+
 /* ---------------- возврат смахиванием от левого края ----------------
    Приложение с экрана «Домой» открывается без браузерных кнопок, и привычного
    жеста «назад» в нём просто нет. Делаем свой, как в системных приложениях.
@@ -3074,6 +3085,45 @@ function bindEdgeBack() {
   }, { passive: true });
 }
 
+/* Разбор словаря: нужен и при запуске, и когда служебный работник сообщил,
+   что на сервере лежит свежая версия. */
+function applyWords(wd) {
+  S.words = wd.words; S.cats = wd.categories;
+  S.byId = new Map();
+  for (const w of S.words) S.byId.set(w.id, w);
+  S.trainable = S.words.filter(w => w.q);
+  S.byCat = new Map();
+  for (const w of S.trainable) for (const c of w.cats) {
+    if (!S.byCat.has(c)) S.byCat.set(c, []);
+    S.byCat.get(c).push(w);
+  }
+}
+
+/* Данные отдаются из памяти устройства, поэтому запуск мгновенный, а свежесть
+   догоняет фоном: работник качает файл, сравнивает с сохранённым и, если тот
+   изменился, присылает сюда сообщение. Перезапускать приложение не нужно. */
+function bindDataUpdates() {
+  if (!navigator.serviceWorker) return;
+  const ends = (p) => (path) => path.endsWith(String(p).replace(/^\.?\//, ''));
+  navigator.serviceWorker.addEventListener('message', async (e) => {
+    const msg = e.data || {};
+    if (msg.type !== 'data-updated' || !msg.path) return;
+    const path = msg.path;
+    try {
+      if (ends(L.data.words)(path)) {
+        applyWords(await fetch(L.data.words).then(r => r.json()));
+        toast('Словарь обновился');
+      } else if (ends(L.data.audio)(path)) S.audio = await fetch(L.data.audio).then(r => r.json());
+      else if (ends(L.data.alphabet)(path)) S.alphabet = await fetch(L.data.alphabet).then(r => r.json());
+      else if (ends(L.data.mnemonics)(path)) S.mnemo = await fetch(L.data.mnemonics).then(r => r.json());
+      else if (ends(L.data.examples)(path)) S.examples = await fetch(L.data.examples).then(r => r.json());
+      else if (L.lessons && ends(L.lessons)(path)) S.lessons = await fetch(L.lessons).then(r => r.json());
+      else return;
+      if (!S.session && !S.alphaQuiz && !S.quiz) render();   // в середине занятия экран не трогаем
+    } catch (err) { /* не получилось — останемся на сохранённой версии до следующего запуска */ }
+  });
+}
+
 
 async function boot() {
   S.prog = loadProgress();
@@ -3096,17 +3146,11 @@ async function boot() {
       // раздел грамматики есть не у всех языков; без него приложение работает как раньше
       L.lessons ? fetch(L.lessons).then(r => r.json()).catch(() => null) : Promise.resolve(null),
     ]);
-    S.words = wd.words; S.cats = wd.categories; S.alphabet = al; S.audio = ai;
+    applyWords(wd);
+    S.alphabet = al; S.audio = ai;
     S.mnemo = mn || {}; S.examples = ex || {}; S.lessons = ls;
     if (!Object.keys(S.audio).length) {
       setTimeout(() => toast('Озвучка не подгрузилась — обновите страницу (Cmd+Shift+R)'), 800);
-    }
-    for (const w of S.words) S.byId.set(w.id, w);
-    S.trainable = S.words.filter(w => w.q);
-    S.byCat = new Map();
-    for (const w of S.trainable) for (const c of w.cats) {
-      if (!S.byCat.has(c)) S.byCat.set(c, []);
-      S.byCat.get(c).push(w);
     }
   } catch (e) {
     $('#main').innerHTML = `<div class="empty"><div class="ico">${ico('warn')}</div><h3>Не удалось загрузить словарь</h3>
@@ -3116,6 +3160,7 @@ async function boot() {
   $$('.tab').forEach(b => b.onclick = () => go(b.dataset.go));
   bindEdgeBack();
   bindStatusBarTap();
+  bindDataUpdates();
   document.addEventListener('keydown', (e) => {
     if (e.target.matches('input,select,textarea')) return;
     if (S.alphaQuiz && S.alphaKeys) S.alphaKeys(e);

@@ -1,7 +1,7 @@
 importScripts('config.js');
 
 /* Офлайн-кэш: оболочка и словарь — заранее, озвучка — по мере прослушивания. */
-const SHELL = `${L.key}-shell-v6`;
+const SHELL = `${L.key}-shell-v7`;
 const AUDIO = `${L.key}-audio-v1`;
 const AUDIO_LIMIT = 1200;                    // сколько озвучек держать офлайн
 const SHELL_FILES = [
@@ -44,7 +44,33 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // всё остальное: свежее из сети в обход промежуточных кэшей, при отсутствии связи — из кэша
+  /* Словарь и прочие данные: сначала из памяти устройства, потом проверка сети.
+     Раньше они качались заново при каждом запуске — почти два мегабайта, и всё
+     это время на экране висело «загружаю словарь». Данные меняются редко, так
+     что отдаём сохранённое сразу, а свежее подтягиваем в фоне; если оно
+     отличается, сообщаем странице, и та обновляет словарь без перезапуска. */
+  if (url.pathname.includes('/data/') && url.pathname.endsWith('.json')) {
+    e.respondWith(caches.open(SHELL).then(async (cache) => {
+      const saved = await cache.match(e.request);
+      const fresh = fetch(new Request(e.request.url, { cache: 'no-store', credentials: 'same-origin' }))
+        .then(async (res) => {
+          if (!res.ok) return null;
+          const mark = (r) => r.headers.get('etag') || r.headers.get('content-length') || '';
+          const changed = saved && mark(saved) !== mark(res);
+          await cache.put(e.request, res.clone());
+          if (changed) {
+            const clients = await self.clients.matchAll({ type: 'window' });
+            for (const c of clients) c.postMessage({ type: 'data-updated', path: url.pathname });
+          }
+          return res;
+        })
+        .catch(() => null);
+      return saved || (await fresh) || fetch(e.request);
+    }));
+    return;
+  }
+
+  // оболочка: свежее из сети в обход промежуточных кэшей, при отсутствии связи — из кэша
   e.respondWith(
     fetch(new Request(e.request.url, { cache: 'no-store', credentials: 'same-origin' }))
       .then((res) => {
