@@ -2225,8 +2225,9 @@ function alphabetQuiz() {
     </div>
     <div class="options">${opts.map((o, i) => `<button class="opt" data-i="${i}">${i + 1}. <b>${esc(o[3])}</b> — ${esc(o[4])}</button>`).join('')}</div>
   </div>`);
+  // Звук сам не играет: вопрос как раз про звук буквы, и автоозвучка его выдавала бы.
+  // Послушать можно по кнопке — это уже выбор человека, а не подсказка.
   box.querySelector('.speak').onclick = () => speak(a[1]);
-  setTimeout(() => speak(a[1]), 150);
   const leave = () => {
     const asked = q.asked, right = q.right;
     S.alphaQuiz = null; S.alphaKeys = null;
