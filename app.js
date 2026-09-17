@@ -2186,22 +2186,38 @@ ROUTES.alphabet = function () {
     const a = S.alphabet[+c.dataset.i];
     c.onclick = (e) => speak(e.target.closest('.ex') ? a[5] : a[1]);
   });
-  $('#a-quiz', box).onclick = () => { S.alphaQuiz = { i: 0, right: 0, total: 12, queue: pick(S.alphabet, 12) }; render(); };
+  $('#a-quiz', box).onclick = () => { startAlphaQuiz(); render(); };
   return box;
 };
 
+/* Тренировка букв идёт по кругу и сама не заканчивается: человек выходит,
+   когда захочет, кнопкой «Назад». Буквы берутся перемешанной колодой по всему
+   алфавиту — пока круг не пройден, повторов нет, поэтому за круг встречается
+   каждая буква. Кончилась колода — тасуем заново, следя, чтобы первая буква
+   нового круга не совпала с последней буквой прошлого. */
+function alphaDeck(prev) {
+  const deck = shuffle(S.alphabet.slice());
+  if (prev && deck.length > 1 && deck[0][0] === prev) deck.push(deck.shift());
+  return deck;
+}
+function startAlphaQuiz() {
+  S.alphaQuiz = { deck: alphaDeck(), i: 0, right: 0, asked: 0, round: 1 };
+}
 function alphabetQuiz() {
-  const q = S.alphaQuiz, a = q.queue[q.i];
-  if (!a) {
-    const r = q.right, t = q.total; S.alphaQuiz = null;
-    return emptyScreen(ico(r === t ? 'trophy' : 'thumb'), 'Тренировка букв завершена', `Правильно: ${r} из ${t}`,
-      'Ещё раз', () => { S.alphaQuiz = { i: 0, right: 0, total: 12, queue: pick(S.alphabet, 12) }; render(); },
-      'К алфавиту', () => render());
+  const q = S.alphaQuiz;
+  if (q.i >= q.deck.length) {                       // круг пройден — начинаем новый
+    q.deck = alphaDeck(q.deck[q.deck.length - 1][0]);
+    q.i = 0; q.round++;
   }
+  const a = q.deck[q.i];
   const opts = shuffle([a, ...pick(S.alphabet.filter(x => x[0] !== a[0]), 3)]);
   const box = el(`<div class="trainer">
-    <div class="progress-line"><i style="width:${q.i / q.total * 100}%"></i></div>
-    <p class="sub" style="text-align:center;margin-bottom:14px">Буква ${q.i + 1} из ${q.total}</p>
+    <div class="progress-line"><i style="width:${q.i / q.deck.length * 100}%"></i></div>
+    <div class="trainer-head">
+      <button class="btn ghost sm back-btn">← Назад</button>
+      <p class="sub">${q.asked ? `Пройдено ${q.asked} · верно ${q.right}` : `Круг по всем ${q.deck.length} буквам`}</p>
+      <span class="head-spacer"></span>
+    </div>
     <div class="word-card">
       <div class="word-ka ka" style="font-size:64px">${a[0]}</div>
       <button class="speak lg">${ico('play')}</button>
@@ -2211,10 +2227,18 @@ function alphabetQuiz() {
   </div>`);
   box.querySelector('.speak').onclick = () => speak(a[1]);
   setTimeout(() => speak(a[1]), 150);
+  const leave = () => {
+    const asked = q.asked, right = q.right;
+    S.alphaQuiz = null; S.alphaKeys = null;
+    render();
+    if (asked) toast(`Тренировка букв: ${right} из ${asked}`);
+  };
+  box.querySelector('.back-btn').onclick = leave;
   let done = false;
   const answer = (i) => {
     if (done) return; done = true;
     const ok = opts[i][0] === a[0];
+    q.asked++;
     if (ok) q.right++;
     $$('.opt', box).forEach((b, j) => {
       b.disabled = true;
@@ -2224,7 +2248,10 @@ function alphabetQuiz() {
     setTimeout(() => { q.i++; render(); }, ok ? 600 : 1500);
   };
   $$('.opt', box).forEach(b => b.onclick = () => answer(+b.dataset.i));
-  S.alphaKeys = (e) => { if (/^[1-4]$/.test(e.key)) answer(+e.key - 1); };
+  S.alphaKeys = (e) => {
+    if (/^[1-4]$/.test(e.key)) answer(+e.key - 1);
+    else if (e.key === 'Escape') leave();
+  };
   return box;
 }
 
