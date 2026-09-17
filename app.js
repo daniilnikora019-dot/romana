@@ -2226,7 +2226,7 @@ ROUTES.alphabet = function () {
    по себе, а вместе с тем, с чего она начинается. Первым идёт слово-пример из
    данных алфавита, дальше — самые частые слова словаря на ту же букву.
    Латинской записи здесь нет намеренно: она назвала бы звук, а его как раз
-   и спрашивают. Послушать слово можно кнопкой — это выбор человека. */
+   и спрашивают. Сам список тоже свёрнут — по той же причине. */
 function abcWords(row, n = 3) {
   const out = [];
   if (row[5]) out.push([row[5], row[6] || '']);
@@ -2268,19 +2268,29 @@ function alphabetQuiz() {
     </div>
     <div class="options">${opts.map((o, i) => `<button class="opt" data-i="${i}">${i + 1}. <b>${esc(o[3])}</b> — ${esc(o[4])}</button>`).join('')}</div>
     <div class="abc">
-      <div class="abc-head">Слова на эту букву</div>
-
-      ${abcWords(a).map(([ka, ru], i) => `
-        <div class="abc-row">
-          ${i === 0 && a[7] ? `<img class="abc-pic" src="icons/abc/${encodeURIComponent(a[7])}.svg" alt="" loading="lazy">` : ''}
-          <b class="${L.script}">${esc(ka)}</b>
-          <span>${esc(ru)}</span>
-          ${audioUrl(ka) ? `<button class="abc-play" data-w="${i}" title="Послушать">${ico('play')}</button>` : ''}
-        </div>`).join('')}
+      <button class="abc-toggle" aria-expanded="false">Слова на эту букву<i>▾</i></button>
+      <div class="abc-list" hidden>
+        ${abcWords(a).map(([ka, ru], i) => `
+          <div class="abc-row">
+            ${i === 0 && a[7] ? `<img class="abc-pic" src="icons/abc/${encodeURIComponent(a[7])}.svg" alt="" loading="lazy">` : ''}
+            <b class="${L.script}">${esc(ka)}</b>
+            <span>${esc(ru)}</span>
+            ${audioUrl(ka) ? `<button class="abc-play" data-w="${i}" title="Послушать">${ico('play')}</button>` : ''}
+          </div>`).join('')}
+      </div>
     </div>
   </div>`);
   const abc = abcWords(a);
   $$('.abc-play', box).forEach(b => b.onclick = () => speak(abc[+b.dataset.w][0]));
+  // Список свёрнут: слова на эту букву — прямая подсказка к её звуку,
+  // и открывать их человек должен сам, а не видеть до ответа.
+  const abcToggle = box.querySelector('.abc-toggle');
+  abcToggle.onclick = () => {
+    const list = box.querySelector('.abc-list');
+    list.hidden = !list.hidden;
+    abcToggle.setAttribute('aria-expanded', String(!list.hidden));
+    abcToggle.classList.toggle('open', !list.hidden);
+  };
   // До ответа звук сам не играет: вопрос как раз про звук буквы, и автоозвучка
   // его выдавала бы. Послушать до ответа можно кнопкой — это выбор человека.
   // После ответа буква произносится сама: подсказывать уже нечего, зато слышно,

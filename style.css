@@ -514,7 +514,13 @@ h2.sect + .menu-card{margin-bottom:18px}
   margin-top:18px;background:var(--surface);border:1px solid var(--line);
   border-radius:var(--r-lg);padding:12px 14px 6px;
 }
-.abc-head{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.abc-toggle{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:4px 0 6px;font-size:12.5px;font-weight:600;color:var(--muted);
+}
+.abc-toggle i{font-style:normal;font-size:12px;transition:transform .16s}
+.abc-toggle.open{color:var(--accent)}
+.abc-toggle.open i{transform:rotate(180deg)}
 /* картинка к первому слову: как в букваре — предмет рядом со словом */
 .abc-pic{width:44px;height:44px;flex:0 0 44px}
 .abc-row{display:flex;align-items:center;gap:10px;padding:7px 0}
