@@ -199,6 +199,15 @@ EXPLICIT = re.compile('|'.join([
     r'(оральн|анальн|вагинальн|групп\w*)\w*\s+секс',
 ]), re.I)
 
+# Приложением пользуются и дети, поэтому слова про ненависть, террор и
+# репрессии в словарь не идут: из новостных корпусов они лезут сами собой.
+HEAVY = re.compile('|'.join([
+    r'фашиз', r'фашист', r'нациз', r'нацист', r'национализм', r'националист', r'расиз',
+    r'расист', r'шовиниз', r'экстремиз', r'антисемит', r'ксенофоб', r'апартеид', r'геноцид',
+    r'холокост', r'сегрегац', r'дискриминац', r'террор', r'теракт', r'диктатур',
+    r'тоталитар', r'репресс', r'концлагер', r'цензур', r'пропаганд',
+]), re.I)
+
 # пометы, по которым значение целиком не берём в учебный словарь
 OFFENSIVE = re.compile(r'^(вульг|груб|бран|обсц|неценз|мат\b|презр|уничиж|пренебр|оскорб|неодобр|табу)')
 SLANG = re.compile(r'^(жарг|сленг|арго|прост\b|разг\.-сниж)')
@@ -263,7 +272,8 @@ for line in open(WIKT, encoding='utf-8'):
     if not RO_ONLY.match(ka) or len(ka) < 2: continue
     if r.get('pos') in ('suffix', 'prefix') or ka.startswith('-') or ka.endswith('-'): continue
     glosses = [clean_gloss(g) for s in r.get('senses', []) for g in (s.get('glosses') or [])]
-    glosses = [g for g in glosses if g and not OFFENSIVE.match(g.lower()) and not EXPLICIT.search(g)]
+    glosses = [g for g in glosses if g and not OFFENSIVE.match(g.lower()) and not EXPLICIT.search(g)
+                and not HEAVY.search(g)]
     # Побочные значения с пометой сниженного стиля отбрасываем, если у слова есть
     # обычное значение: в учебном словаре они не нужны, а среди них попадается
     # обидная лексика — так в словарь однажды попала унизительная характеристика

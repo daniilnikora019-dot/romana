@@ -509,6 +509,10 @@ h2.sect + .menu-card{margin-bottom:18px}
 .alpha-card .speak{margin-top:10px}
 .alpha-card .word-tr{margin-top:10px}
 
+/* сброс прогресса темы — под последним словом: действие редкое и необратимое,
+   ему не место среди кнопок порядка сортировки */
+.cat-foot{margin-top:18px;display:flex;justify-content:center}
+
 /* азбучная часть тренировки букв: слова, с которых начинается буква */
 .abc{
   margin-top:18px;background:var(--surface);border:1px solid var(--line);

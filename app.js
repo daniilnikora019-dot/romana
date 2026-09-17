@@ -2156,11 +2156,12 @@ ROUTES.dictcat = function () {
       <button class="chip sm ${order === 'alpha' ? 'on' : ''}" data-order="alpha">по алфавиту</button>
       <button class="chip sm ${order === 'ru' ? 'on' : ''}" data-order="ru">по переводу</button>
       <button class="chip sm ${order === 'level' ? 'on' : ''}" data-order="level">по уровню</button>
-      <span style="flex:1"></span>
-      <button class="chip sm" id="cat-reset">↺ Сбросить прогресс темы</button>
     </div>
     <div class="wlist">${shown.slice(0, limit).map(wordRowHTML).join('')}</div>
     ${shown.length > limit ? `<button class="btn ghost load-more">Показать ещё (${shown.length - limit})</button>` : ''}
+    <div class="cat-foot">
+      <button class="btn ghost sm" id="cat-reset">↺ Сбросить прогресс темы</button>
+    </div>
   </div>`);
   bindSubHead(box);
   bindWordRows(box);
@@ -2977,6 +2978,52 @@ function paintWallpaper() {
   layer.innerHTML = html;
 }
 
+/* ---------------- возврат смахиванием от левого края ----------------
+   Приложение с экрана «Домой» открывается без браузерных кнопок, и привычного
+   жеста «назад» в нём просто нет. Делаем свой: касание начинается у самого края,
+   палец идёт вправо — уходим на экран выше. Целью служит та же ссылка «Назад»,
+   что нарисована сверху, поэтому жест работает ровно там, где возврат вообще
+   есть, и ведёт ровно туда же. В тренировках он выключен: там смахивание по
+   карточке уже означает ответ, и путать эти два жеста нельзя. */
+function bindEdgeBack() {
+  const EDGE = 24, GO = 70, MAX_SLIP = 60;
+  let x0 = 0, y0 = 0, dx = 0, live = false;
+  const main = () => $('#main');
+  const target = () => $('.modal-bg') || $('#main .back-link');
+  const busy = () => S.session || S.alphaQuiz || S.quiz;
+
+  document.addEventListener('touchstart', (e) => {
+    live = false;
+    if (e.touches.length !== 1 || busy()) return;
+    const t = e.touches[0];
+    if (t.clientX > EDGE || !target()) return;
+    x0 = t.clientX; y0 = t.clientY; dx = 0; live = true;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!live) return;
+    const t = e.touches[0];
+    dx = t.clientX - x0;
+    // палец повело вертикально — это прокрутка, а не возврат
+    if (Math.abs(t.clientY - y0) > MAX_SLIP) { live = false; main().style.transform = ''; return; }
+    if (dx > 0) main().style.transform = `translateX(${Math.min(dx, 120)}px)`;
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    if (!live) return;
+    live = false;
+    const m = main();
+    m.style.transition = 'transform .18s';
+    m.style.transform = '';
+    setTimeout(() => { m.style.transition = ''; }, 220);
+    if (dx <= GO) return;
+    const t = target();
+    if (!t) return;
+    if (t.classList.contains('modal-bg')) t.remove(); else t.click();
+  }, { passive: true });
+}
+
+
 async function boot() {
   S.prog = loadProgress();
   applyTheme();
@@ -3016,6 +3063,7 @@ async function boot() {
     return;
   }
   $$('.tab').forEach(b => b.onclick = () => go(b.dataset.go));
+  bindEdgeBack();
   document.addEventListener('keydown', (e) => {
     if (e.target.matches('input,select,textarea')) return;
     if (S.alphaQuiz && S.alphaKeys) S.alphaKeys(e);
