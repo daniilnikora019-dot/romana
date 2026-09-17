@@ -895,33 +895,50 @@ function ruStems(text) {
 
 /* Подбор похожих, но однозначно неверных вариантов:
    та же тема → близкий уровень → та же часть речи → похожая длина и употребимость. */
-/* Неверные варианты берутся случайно по всему тренируемому словарю.
-   Раньше они подбирались похожими — та же тема, тот же уровень, близкая длина
-   и частота, — и круг кандидатов выходил узким: на сорок показов одного слова
-   приходилось всего три десятка разных вариантов, а самые подходящие по этой
-   мерке возвращались снова и снова. Отсеиваем только то, что сделало бы вопрос
-   нечестным: само слово, его синонимы и совпадающие написания или переводы. */
 function distractors(w, field, n = 3) {
   const targetStems = ruStems(w.ru);
+  const lvl = LEVELS.indexOf(w.lvl);
   const usable = (x) => {
     if (x.id === w.id || !x.q) return false;
     if (x[field] === w[field] || x.ru === w.ru || x.ka === w.ka) return false;
-    for (const st of ruStems(x.ru)) if (targetStems.has(st)) return false;   // синонимы отсекаем
+    for (const st of ruStems(x.ru)) if (targetStems.has(st)) return false;  // синонимы отсекаем
     return true;
   };
-  const pool = S.trainable;
-  const out = [], taken = new Set([w.id]);
-  // тычем наугад: при словаре в тысячи слов промахи редки и перебор не нужен
-  for (let tries = 0; out.length < n && tries < 400; tries++) {
-    const x = pool[Math.random() * pool.length | 0];
-    if (!x || taken.has(x.id) || !usable(x)) continue;
-    taken.add(x.id); out.push(x);
+  const multi = w.ka.includes(' ');
+  const score = (x) =>
+      -Math.abs(LEVELS.indexOf(x.lvl) - lvl) * 10
+      + (x.pos && w.pos && x.pos === w.pos ? 14 : 0)
+      + (x.ka.includes(' ') === multi ? 12 : 0)      // слово к слову, фраза к фразе
+      - Math.abs(x.ru.length - w.ru.length) * 0.25
+      - Math.abs(Math.log10(x.f || 0.3) - Math.log10(w.f || 0.3)) * 4
+      + Math.random() * 9;                       // лёгкая случайность: варианты не повторяются
+
+  // 1) своя тема, 2) свой уровень, 3) весь тренируемый словарь — каскад до заполнения
+  const seen = new Set([w.id]);
+  let cands = [];
+  for (const c of w.cats) for (const x of (S.byCat.get(c) || [])) {
+    if (!seen.has(x.id) && usable(x)) { seen.add(x.id); cands.push(x); }
   }
-  // страховка на узкой выборке: добираем сплошным перебором
+  if (cands.length < n * 4) {
+    for (const x of S.trainable) {
+      if (x.lvl === w.lvl && !seen.has(x.id) && usable(x)) { seen.add(x.id); cands.push(x); }
+      if (cands.length >= n * 6) break;
+    }
+  }
+  if (cands.length < n) {
+    for (const x of S.trainable) {
+      if (!seen.has(x.id) && usable(x)) { seen.add(x.id); cands.push(x); }
+      if (cands.length >= n * 4) break;
+    }
+  }
+  cands.sort((a, b) => score(b) - score(a));
+  const best = cands.slice(0, Math.max(n, Math.min(10, cands.length)));
+  const out = shuffle(best).slice(0, n);
+  // страховка: вариантов всегда ровно n
   if (out.length < n) {
-    for (const x of shuffle(pool.slice())) {
+    for (const x of shuffle(S.trainable.slice())) {
       if (out.length >= n) break;
-      if (!taken.has(x.id) && usable(x)) { taken.add(x.id); out.push(x); }
+      if (!out.includes(x) && x.id !== w.id && x[field] !== w[field]) out.push(x);
     }
   }
   return out;
@@ -2178,6 +2195,22 @@ ROUTES.alphabet = function () {
    алфавиту — пока круг не пройден, повторов нет, поэтому за круг встречается
    каждая буква. Кончилась колода — тасуем заново, следя, чтобы первая буква
    нового круга не совпала с последней буквой прошлого. */
+/* Слова на эту букву — азбучная часть тренировки: буква запоминается не сама
+   по себе, а вместе с тем, с чего она начинается. Первым идёт слово-пример из
+   данных алфавита, дальше — самые частые слова словаря на ту же букву.
+   Латинской записи здесь нет намеренно: она назвала бы звук, а его как раз
+   и спрашивают. Послушать слово можно кнопкой — это выбор человека. */
+function abcWords(row, n = 3) {
+  const out = [];
+  if (row[5]) out.push([row[5], row[6] || '']);
+  const rest = S.trainable
+    .filter(w => w.ka.startsWith(row[0]) && w.ka !== row[5] && audioUrl(w.ka))
+    .sort((a, b) => (b.f || 0) - (a.f || 0))
+    .slice(0, n - out.length);
+  for (const w of rest) out.push([w.ka, w.ru]);
+  return out;
+}
+
 function alphaDeck(prev) {
   const deck = shuffle(S.alphabet.slice());
   if (prev && deck.length > 1 && deck[0][0] === prev) deck.push(deck.shift());
@@ -2198,16 +2231,27 @@ function alphabetQuiz() {
     <div class="progress-line"><i style="width:${q.i / q.deck.length * 100}%"></i></div>
     <div class="trainer-head">
       <button class="btn ghost sm back-btn">← Назад</button>
-      <p class="sub">${q.asked ? `Пройдено ${q.asked} · верно ${q.right}` : `Круг по всем ${q.deck.length} буквам`}</p>
+      <p class="sub">Пройдено ${q.asked} · верно ${q.right}</p>
       <span class="head-spacer"></span>
     </div>
-    <div class="word-card">
-      <div class="word-ka ka" style="font-size:64px">${a[0]}</div>
-      <button class="speak lg">${ico('play')}</button>
+    <div class="word-card alpha-card">
+      <div class="word-ka ka">${a[0]}</div>
+      <button class="speak">${ico('play')}</button>
       <div class="word-tr">какой это звук?</div>
     </div>
     <div class="options">${opts.map((o, i) => `<button class="opt" data-i="${i}">${i + 1}. <b>${esc(o[3])}</b> — ${esc(o[4])}</button>`).join('')}</div>
+    <div class="abc">
+      <div class="abc-head">Слова на эту букву</div>
+      ${abcWords(a).map(([ka, ru], i) => `
+        <div class="abc-row">
+          <b class="${L.script}">${esc(ka)}</b>
+          <span>${esc(ru)}</span>
+          ${audioUrl(ka) ? `<button class="abc-play" data-w="${i}" title="Послушать">${ico('play')}</button>` : ''}
+        </div>`).join('')}
+    </div>
   </div>`);
+  const abc = abcWords(a);
+  $$('.abc-play', box).forEach(b => b.onclick = () => speak(abc[+b.dataset.w][0]));
   // До ответа звук сам не играет: вопрос как раз про звук буквы, и автоозвучка
   // его выдавала бы. Послушать до ответа можно кнопкой — это выбор человека.
   // После ответа буква произносится сама: подсказывать уже нечего, зато слышно,

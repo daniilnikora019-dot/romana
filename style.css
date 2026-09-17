@@ -500,6 +500,28 @@ h2.sect + .menu-card{margin-bottom:18px}
 .quiz-why .btn{margin-top:6px}
 .quiz-why{scroll-margin-bottom:calc(96px + env(safe-area-inset-bottom))}
 
+/* карточка буквы в тренировке: ниже обычной, чтобы под вариантами помещалась азбука */
+.alpha-card{padding:20px 18px 18px}
+.alpha-card .word-ka{font-size:52px;margin:0 0 4px}
+.alpha-card .speak{margin-top:10px}
+.alpha-card .word-tr{margin-top:10px}
+
+/* азбучная часть тренировки букв: слова, с которых начинается буква */
+.abc{
+  margin-top:18px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-lg);padding:12px 14px 6px;
+}
+.abc-head{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.abc-row{display:flex;align-items:center;gap:10px;padding:7px 0}
+.abc-row + .abc-row{border-top:1px solid var(--line)}
+.abc-row b{font-size:17px;font-weight:600;min-width:0;word-break:break-word}
+.abc-row span{font-size:13.5px;color:var(--text-2);flex:1;min-width:0}
+.abc-play{
+  width:34px;height:34px;flex:0 0 34px;border-radius:50%;background:var(--accent-soft);
+  color:var(--accent);display:grid;place-items:center;
+}
+.abc-play .icn{width:16px;height:16px;vertical-align:0}
+
 /* ---------- пусто/финиш ---------- */
 .empty{text-align:center;padding:60px 20px;color:var(--muted)}
 .empty .ico{font-size:42px;margin-bottom:16px;opacity:.9}
