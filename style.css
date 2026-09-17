@@ -69,7 +69,7 @@ input,select{font-family:inherit;font-size:inherit;color:inherit}
 #wallpaper span{flex:0 0 var(--wp-step);text-align:center}
 #wallpaper span.rev{display:inline-block;transform:rotate(180deg)}
 #app{display:block;min-height:100vh;position:relative;z-index:1}
-#main{
+#main,.under-inner{
   min-width:0;max-width:1160px;margin:0 auto;
   padding:28px 26px calc(116px + env(safe-area-inset-bottom));
 }
@@ -431,6 +431,17 @@ h2.sect + .menu-card{margin-bottom:18px}
 .hint-pop::after{display:none}
 .hint-pop.above::before{top:auto;bottom:-6.5px;border-width:0 1px 1px 0}
 
+/* полоса над вырезом: касание по ней поднимает страницу наверх */
+#to-top{
+  position:fixed;top:0;left:0;right:0;z-index:60;
+  height:env(safe-area-inset-top,0px);
+}
+
+/* возврат смахиванием: под текущим экраном во время жеста лежит предыдущий */
+#under{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+#under .under-dim{position:absolute;inset:0;background:#000}
+#main{will-change:transform}
+
 /* ---------- раздел грамматики ----------
    Урок читается подряд, как страница книги, поэтому текст выключен влево и
    мерой строки ограничен; таблицы спряжения прокручиваются вбок сами, чтобы
@@ -714,7 +725,7 @@ canvas{display:block;width:100%}
 @keyframes fade{from{opacity:0;transform:translateY(4px)}}
 
 @media(max-width:820px){
-  #main{
+  #main,.under-inner{
     padding:18px calc(16px + env(safe-area-inset-right)) calc(112px + env(safe-area-inset-bottom))
            calc(16px + env(safe-area-inset-left));
   }

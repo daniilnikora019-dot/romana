@@ -318,7 +318,8 @@ function render() {
   const main = $('#main');
   main.innerHTML = '';
   main.appendChild(ROUTES[S.route]());
-  main.firstElementChild.classList.add('fade');
+  if (!S.backAnim) main.firstElementChild.classList.add('fade');
+  S.backAnim = false;
   const c = counts();
   const badge = $('#b-due');
   if (badge) badge.hidden = !(c.due || c.fresh);
@@ -2980,24 +2981,60 @@ function paintWallpaper() {
 
 /* ---------------- возврат смахиванием от левого края ----------------
    Приложение с экрана «Домой» открывается без браузерных кнопок, и привычного
-   жеста «назад» в нём просто нет. Делаем свой: касание начинается у самого края,
-   палец идёт вправо — уходим на экран выше. Целью служит та же ссылка «Назад»,
-   что нарисована сверху, поэтому жест работает ровно там, где возврат вообще
-   есть, и ведёт ровно туда же. В тренировках он выключен: там смахивание по
-   карточке уже означает ответ, и путать эти два жеста нельзя. */
+   жеста «назад» в нём просто нет. Делаем свой, как в системных приложениях.
+
+   Главное здесь — предыдущий экран виден уже во время движения. Как только
+   палец касается края, экран, на который ведёт ссылка «Назад», рисуется слоем
+   ниже и ставится левее с затемнением. Дальше текущий экран идёт за пальцем,
+   а нижний подтягивается к своему месту и светлеет: получается, что верхний
+   лист сдвигают, открывая тот, что под ним.
+
+   Решают не пиксели, а доля ширины: увести надо почти до середины (45%), либо
+   коротко, но быстро — бросок от 0,6 пикселя в миллисекунду. Поэтому случайное
+   задевание края переходом не заканчивается. Не дотянули — оба экрана плавно
+   возвращаются на свои места.
+
+   В тренировках жест выключен: там смахивание по карточке уже означает ответ. */
+const BACK_SAFE = ['home', 'dict', 'dictcat', 'menu', 'cats', 'lessons', 'alphabet', 'stats', 'about'];
+
 function bindEdgeBack() {
-  const EDGE = 24, GO = 70, MAX_SLIP = 60;
-  let x0 = 0, y0 = 0, dx = 0, live = false;
+  const EDGE = 28, PART = 0.45, FLING = 0.6, FLING_MIN = 60, SLIP = 60, LAG = 0.3, DIM = 0.28;
+  let x0 = 0, y0 = 0, t0 = 0, dx = 0, live = false, under = null, link = null;
   const main = () => $('#main');
-  const target = () => $('.modal-bg') || $('#main .back-link');
   const busy = () => S.session || S.alphaQuiz || S.quiz;
+
+  /* Нижний экран рисуем заранее, на касании: во время движения рисовать уже поздно. */
+  const showUnder = (route) => {
+    if (!BACK_SAFE.includes(route) || !ROUTES[route]) return null;
+    const box = el('<div id="under" aria-hidden="true"><div class="under-inner"></div><div class="under-dim"></div></div>');
+    try { $('.under-inner', box).appendChild(ROUTES[route]()); } catch (e) { return null; }
+    document.body.appendChild(box);
+    return box;
+  };
+  const place = (part) => {                            // part: 0 — начало жеста, 1 — конец
+    const m = main();
+    m.style.transform = `translateX(${dx}px)`;
+    m.style.boxShadow = '-14px 0 28px rgba(0,0,0,.28)';
+    if (!under) return;
+    $('.under-inner', under).style.transform = `translateX(${-window.innerWidth * LAG * (1 - part)}px)`;
+    $('.under-dim', under).style.opacity = String(DIM * (1 - part));
+  };
+  const clear = () => {
+    const m = main();
+    m.style.transition = ''; m.style.transform = ''; m.style.boxShadow = '';
+    if (under) { under.remove(); under = null; }
+  };
 
   document.addEventListener('touchstart', (e) => {
     live = false;
     if (e.touches.length !== 1 || busy()) return;
     const t = e.touches[0];
-    if (t.clientX > EDGE || !target()) return;
-    x0 = t.clientX; y0 = t.clientY; dx = 0; live = true;
+    if (t.clientX > EDGE) return;
+    link = $('.modal-bg') || $('#main .back-link');
+    if (!link) return;
+    x0 = t.clientX; y0 = t.clientY; t0 = Date.now(); dx = 0; live = true;
+    under = link.classList.contains('modal-bg') ? null : showUnder(link.dataset.back);
+    place(0);
   }, { passive: true });
 
   document.addEventListener('touchmove', (e) => {
@@ -3005,21 +3042,35 @@ function bindEdgeBack() {
     const t = e.touches[0];
     dx = t.clientX - x0;
     // палец повело вертикально — это прокрутка, а не возврат
-    if (Math.abs(t.clientY - y0) > MAX_SLIP) { live = false; main().style.transform = ''; return; }
-    if (dx > 0) main().style.transform = `translateX(${Math.min(dx, 120)}px)`;
+    if (Math.abs(t.clientY - y0) > SLIP) { live = false; clear(); return; }
+    if (dx >= 0) place(Math.min(1, dx / window.innerWidth));
   }, { passive: true });
 
   document.addEventListener('touchend', () => {
     if (!live) return;
     live = false;
-    const m = main();
-    m.style.transition = 'transform .18s';
-    m.style.transform = '';
-    setTimeout(() => { m.style.transition = ''; }, 220);
-    if (dx <= GO) return;
-    const t = target();
-    if (!t) return;
-    if (t.classList.contains('modal-bg')) t.remove(); else t.click();
+    const m = main(), w = window.innerWidth;
+    // очень короткие жесты в расчёт скорости не берём: рывок в один кадр
+    // (а иногда и одно событие) давал бы бесконечную скорость
+    const ms = Date.now() - t0;
+    const speed = ms > 30 ? dx / ms : 0;
+    const done = dx > w * PART || (dx > FLING_MIN && speed > FLING);
+    const ease = 'cubic-bezier(.22,.61,.36,1)';
+    const inner = under && $('.under-inner', under), dim = under && $('.under-dim', under);
+    if (inner) { inner.style.transition = `transform .22s ${ease}`; dim.style.transition = 'opacity .22s'; }
+    m.style.transition = `transform .22s ${ease}, box-shadow .22s`;
+
+    if (!done) {                                       // не дотянули — всё возвращается на место
+      dx = 0; place(0);
+      setTimeout(clear, 240);
+      return;
+    }
+    m.style.transform = `translateX(${w}px)`;          // верхний лист уходит целиком
+    if (inner) { inner.style.transform = 'none'; dim.style.opacity = '0'; }
+    setTimeout(() => {
+      clear();
+      if (link.classList.contains('modal-bg')) link.remove(); else link.click();
+    }, 220);
   }, { passive: true });
 }
 
@@ -3064,6 +3115,7 @@ async function boot() {
   }
   $$('.tab').forEach(b => b.onclick = () => go(b.dataset.go));
   bindEdgeBack();
+  bindStatusBarTap();
   document.addEventListener('keydown', (e) => {
     if (e.target.matches('input,select,textarea')) return;
     if (S.alphaQuiz && S.alphaKeys) S.alphaKeys(e);
