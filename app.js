@@ -895,50 +895,33 @@ function ruStems(text) {
 
 /* Подбор похожих, но однозначно неверных вариантов:
    та же тема → близкий уровень → та же часть речи → похожая длина и употребимость. */
+/* Неверные варианты берутся случайно по всему тренируемому словарю.
+   Раньше они подбирались похожими — та же тема, тот же уровень, близкая длина
+   и частота, — и круг кандидатов выходил узким: на сорок показов одного слова
+   приходилось всего три десятка разных вариантов, а самые подходящие по этой
+   мерке возвращались снова и снова. Отсеиваем только то, что сделало бы вопрос
+   нечестным: само слово, его синонимы и совпадающие написания или переводы. */
 function distractors(w, field, n = 3) {
   const targetStems = ruStems(w.ru);
-  const lvl = LEVELS.indexOf(w.lvl);
   const usable = (x) => {
     if (x.id === w.id || !x.q) return false;
     if (x[field] === w[field] || x.ru === w.ru || x.ka === w.ka) return false;
-    for (const st of ruStems(x.ru)) if (targetStems.has(st)) return false;  // синонимы отсекаем
+    for (const st of ruStems(x.ru)) if (targetStems.has(st)) return false;   // синонимы отсекаем
     return true;
   };
-  const multi = w.ka.includes(' ');
-  const score = (x) =>
-      -Math.abs(LEVELS.indexOf(x.lvl) - lvl) * 10
-      + (x.pos && w.pos && x.pos === w.pos ? 14 : 0)
-      + (x.ka.includes(' ') === multi ? 12 : 0)      // слово к слову, фраза к фразе
-      - Math.abs(x.ru.length - w.ru.length) * 0.25
-      - Math.abs(Math.log10(x.f || 0.3) - Math.log10(w.f || 0.3)) * 4
-      + Math.random() * 9;                       // лёгкая случайность: варианты не повторяются
-
-  // 1) своя тема, 2) свой уровень, 3) весь тренируемый словарь — каскад до заполнения
-  const seen = new Set([w.id]);
-  let cands = [];
-  for (const c of w.cats) for (const x of (S.byCat.get(c) || [])) {
-    if (!seen.has(x.id) && usable(x)) { seen.add(x.id); cands.push(x); }
+  const pool = S.trainable;
+  const out = [], taken = new Set([w.id]);
+  // тычем наугад: при словаре в тысячи слов промахи редки и перебор не нужен
+  for (let tries = 0; out.length < n && tries < 400; tries++) {
+    const x = pool[Math.random() * pool.length | 0];
+    if (!x || taken.has(x.id) || !usable(x)) continue;
+    taken.add(x.id); out.push(x);
   }
-  if (cands.length < n * 4) {
-    for (const x of S.trainable) {
-      if (x.lvl === w.lvl && !seen.has(x.id) && usable(x)) { seen.add(x.id); cands.push(x); }
-      if (cands.length >= n * 6) break;
-    }
-  }
-  if (cands.length < n) {
-    for (const x of S.trainable) {
-      if (!seen.has(x.id) && usable(x)) { seen.add(x.id); cands.push(x); }
-      if (cands.length >= n * 4) break;
-    }
-  }
-  cands.sort((a, b) => score(b) - score(a));
-  const best = cands.slice(0, Math.max(n, Math.min(10, cands.length)));
-  const out = shuffle(best).slice(0, n);
-  // страховка: вариантов всегда ровно n
+  // страховка на узкой выборке: добираем сплошным перебором
   if (out.length < n) {
-    for (const x of shuffle(S.trainable.slice())) {
+    for (const x of shuffle(pool.slice())) {
       if (out.length >= n) break;
-      if (!out.includes(x) && x.id !== w.id && x[field] !== w[field]) out.push(x);
+      if (!taken.has(x.id) && usable(x)) { taken.add(x.id); out.push(x); }
     }
   }
   return out;
