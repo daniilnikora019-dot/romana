@@ -185,6 +185,23 @@ def clean_gloss(g):
     g = re.sub(r'^(и\s+)?', '', g)
     return g.strip(' .;')
 
+# Словарь учебный, поэтому значения про секс и связанную с ним анатомию
+# в него не идут: смысла для изучающего язык в них нет, а попадаются они
+# из общего Викисловаря сами собой.
+EXPLICIT = re.compile('|'.join([
+    r'женская грудь', r'\bпенис', r'половой член', r'вагин', r'влагалищ', r'ягодиц',
+    r'задниц', r'\bпопа\b', r'седалище', r'мастурб', r'порногр', r'проститу',
+    r'бордел', r'публичный дом', r'презерватив', r'кондом', r'половой акт',
+    r'половое сношение', r'совокуплен', r'соитие', r'эрекц', r'оргазм', r'\bсперм',
+    r'\bсекс\b', r'\bсексуальный\b', r'\bсексуальность\b', r'\bсексология\b',
+    r'(оральн|анальн|вагинальн|групп\w*)\w*\s+секс',
+]), re.I)
+
+# пометы, по которым значение целиком не берём в учебный словарь
+OFFENSIVE = re.compile(r'^(вульг|груб|бран|обсц|неценз|мат\b|презр|уничиж|пренебр|оскорб|неодобр|табу)')
+SLANG = re.compile(r'^(жарг|сленг|арго|прост\b|разг\.-сниж)')
+
+
 def strip_labels(g):
     """убрать пометы вида 'полит.' в начале"""
     return re.sub(r'^((?:[а-яё]{2,10}\.\s*)+)', '', g).strip()
@@ -244,7 +261,14 @@ for line in open(WIKT, encoding='utf-8'):
     if not RO_ONLY.match(ka) or len(ka) < 2: continue
     if r.get('pos') in ('suffix', 'prefix') or ka.startswith('-') or ka.endswith('-'): continue
     glosses = [clean_gloss(g) for s in r.get('senses', []) for g in (s.get('glosses') or [])]
-    glosses = [g for g in glosses if g]
+    glosses = [g for g in glosses if g and not OFFENSIVE.match(g.lower()) and not EXPLICIT.search(g)]
+    # Побочные значения с пометой сниженного стиля отбрасываем, если у слова есть
+    # обычное значение: в учебном словаре они не нужны, а среди них попадается
+    # обидная лексика — так в словарь однажды попала унизительная характеристика
+    # целого народа, прицепленная вторым значением к нейтральному слову.
+    if len(glosses) > 1:
+        plain = [g for g in glosses if not SLANG.match(g.lower())]
+        if plain: glosses = plain
     if not glosses: continue
     wcats = [c['name'] if isinstance(c, dict) else str(c)
              for c in (r.get('categories') or [])]

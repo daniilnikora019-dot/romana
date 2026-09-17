@@ -2029,7 +2029,11 @@ function bindWordRows(root) {
   $$('.wcard', root).forEach(row => {
     const w = S.byId.get(row.dataset.id);
     row.onclick = (e) => {
-      if (e.target.dataset.a === 'speak') { speak(w.ka); return; }
+      // Ищем кнопку через closest: нажатие приходится и на значок внутри неё,
+      // а у него самого никаких пометок нет — раньше такое попадание считалось
+      // нажатием мимо кнопки, и вместо озвучки раскрывалась карточка слова.
+      const hit = e.target.closest('[data-a]');
+      if (hit && hit.dataset.a === 'speak') { speak(w.ka); return; }
       const open = row.nextElementSibling;
       if (open && open.classList.contains('wdetails')) { open.remove(); return; }
       $$('.wdetails', root).forEach(x => x.remove());
@@ -2041,8 +2045,9 @@ function bindWordRows(root) {
           <button class="btn ghost sm" data-a="reset">↺ Сбросить</button>
         </div></div>`);
       det.onclick = (ev) => {
-        const a = ev.target.dataset.a;
-        if (!a) return;
+        const btn = ev.target.closest('[data-a]');
+        if (!btn) return;
+        const a = btn.dataset.a;
         if (a === 'learn') { setWp(w.id, { s: 'learning', r: 0, d: Date.now(), lr: null, e: 0 }); toast('Добавлено в изучение'); }
         else if (a === 'known') { setWp(w.id, { s: 'known', r: 0, d: 0, lr: today(), e: 0 }); toast('Отмечено как известное'); }
         else { delete S.prog.w[w.id]; saveProgress(); toast('Прогресс слова сброшен'); }
@@ -2129,12 +2134,22 @@ ROUTES.dictcat = function () {
   else if (order === 'level') words = words.slice().sort((a, b) =>
     LEVELS.indexOf(a.lvl) - LEVELS.indexOf(b.lvl) || b.f - a.f);
   const limit = S.dictCatLimit || 80;
+  // поиск внутри темы: по родному написанию, латинской записи и переводу
+  const q = (S.dictCatQ || '').trim().toLowerCase();
+  const shown = q
+    ? words.filter(w => w.ka.toLowerCase().includes(q) || w.tr.toLowerCase().includes(q)
+                     || w.ru.toLowerCase().includes(q))
+    : words;
 
   const box = el(`<div>
     ${subHead(cat.name, 'dict', catIcon(cat.id))}
     <p class="sub" style="margin-bottom:14px">
       ${plural(words.length, 'слово', 'слова', 'слов')} ·
       выучено ${counts.mastered} · в процессе ${counts.learning} · знаю ${counts.known}</p>
+    <div class="toolbar">
+      <input type="search" id="cat-q" placeholder="Искать в теме…" value="${esc(S.dictCatQ || '')}">
+    </div>
+    ${q ? `<p class="sub" style="margin:-4px 2px 10px">${shown.length ? `Найдено ${plural(shown.length, 'слово', 'слова', 'слов')}` : 'Ничего не нашлось'}</p>` : ''}
     <div class="toolbar">
       <span class="lbl">Порядок:</span>
       <button class="chip sm ${order === 'default' ? 'on' : ''}" data-order="default">по умолчанию</button>
@@ -2144,12 +2159,24 @@ ROUTES.dictcat = function () {
       <span style="flex:1"></span>
       <button class="chip sm" id="cat-reset">↺ Сбросить прогресс темы</button>
     </div>
-    <div class="wlist">${words.slice(0, limit).map(wordRowHTML).join('')}</div>
-    ${words.length > limit ? `<button class="btn ghost load-more">Показать ещё (${words.length - limit})</button>` : ''}
+    <div class="wlist">${shown.slice(0, limit).map(wordRowHTML).join('')}</div>
+    ${shown.length > limit ? `<button class="btn ghost load-more">Показать ещё (${shown.length - limit})</button>` : ''}
   </div>`);
   bindSubHead(box);
   bindWordRows(box);
   $$('[data-order]', box).forEach(b => b.onclick = () => { S.dictOrder = b.dataset.order; render(); });
+  // перерисовываем не сразу: иначе поле теряет ввод на каждом символе
+  const catQ = $('#cat-q', box);
+  let qTimer = null;
+  catQ.oninput = () => {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => {
+      S.dictCatQ = catQ.value; S.dictCatLimit = 80;
+      render();
+      const again = $('#cat-q');
+      if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+    }, 250);
+  };
   const more = $('.load-more', box);
   if (more) more.onclick = () => { S.dictCatLimit = limit + 150; render(); };
   $('#cat-reset', box).onclick = () => {
@@ -2242,8 +2269,10 @@ function alphabetQuiz() {
     <div class="options">${opts.map((o, i) => `<button class="opt" data-i="${i}">${i + 1}. <b>${esc(o[3])}</b> — ${esc(o[4])}</button>`).join('')}</div>
     <div class="abc">
       <div class="abc-head">Слова на эту букву</div>
+
       ${abcWords(a).map(([ka, ru], i) => `
         <div class="abc-row">
+          ${i === 0 && a[7] ? `<img class="abc-pic" src="icons/abc/${encodeURIComponent(a[7])}.svg" alt="" loading="lazy">` : ''}
           <b class="${L.script}">${esc(ka)}</b>
           <span>${esc(ru)}</span>
           ${audioUrl(ka) ? `<button class="abc-play" data-w="${i}" title="Послушать">${ico('play')}</button>` : ''}

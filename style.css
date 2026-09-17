@@ -378,6 +378,9 @@ h2.sect + .menu-card{margin-bottom:18px}
    Свой набор контурных значков вместо эмодзи: эмодзи рисует система, они
    разные на разных устройствах и тянут за собой чужой стиль. Здесь один
    язык формы и цвет по тексту, поэтому значок сам следует за темой. */
+/* Значок не перехватывает нажатие: попадание точно в него должно считаться
+   нажатием на саму кнопку, а не мимо неё. */
+.icn,.cat-ic{pointer-events:none}
 .icn{
   width:1.05em;height:1.05em;flex:none;vertical-align:-.17em;
   fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
@@ -389,7 +392,7 @@ h2.sect + .menu-card{margin-bottom:18px}
 .speak.lg .icn{width:25px;height:25px}
 .tools button .icn{width:29px;height:29px;vertical-align:0}
 .opt-play .icn,.ex-play .icn{width:19px;height:19px;vertical-align:0}
-.wcard .wplay .icn{width:17px;height:17px;vertical-align:0}
+.wcard .wplay .icn{width:19px;height:19px;vertical-align:0}
 .cat-card .check .icn{width:13px;height:13px;stroke-width:2.8;vertical-align:0}
 .stat .n .icn{width:.8em;height:.8em;vertical-align:-.04em}
 /* крупный значок на пустом экране: тонкая линия, иначе читается как заливка */
@@ -512,6 +515,8 @@ h2.sect + .menu-card{margin-bottom:18px}
   border-radius:var(--r-lg);padding:12px 14px 6px;
 }
 .abc-head{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+/* картинка к первому слову: как в букваре — предмет рядом со словом */
+.abc-pic{width:44px;height:44px;flex:0 0 44px}
 .abc-row{display:flex;align-items:center;gap:10px;padding:7px 0}
 .abc-row + .abc-row{border-top:1px solid var(--line)}
 .abc-row b{font-size:17px;font-weight:600;min-width:0;word-break:break-word}
@@ -567,7 +572,10 @@ h2.sect + .menu-card{margin-bottom:18px}
 .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
 input[type=search],input[type=text],input[type=number],select{
   padding:9px 12px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);
-  outline:none;transition:border-color .14s;font-size:13.5px;
+  outline:none;transition:border-color .14s;
+  /* ровно 16px: при меньшем кегле Safari на iPhone приближает экран, когда
+     человек ставит курсор в поле, и страница уезжает вбок */
+  font-size:16px;
 }
 input[type=search]:focus,select:focus,input[type=number]:focus{border-color:var(--accent)}
 input[type=search]{flex:1;min-width:210px}
@@ -603,9 +611,13 @@ input[type=search]{flex:1;min-width:210px}
 .wcard .wtr{font-size:11.5px;color:var(--muted);letter-spacing:.3px}
 .wcard .wru{font-size:13.5px;color:var(--text-2);margin-top:2px}
 .wcard .wplay{
-  width:42px;height:42px;flex:0 0 42px;border-radius:50%;background:var(--accent-soft);
-  color:var(--accent);font-size:13px;display:grid;place-items:center;
+  width:48px;height:48px;flex:0 0 48px;border-radius:50%;background:var(--accent-soft);
+  color:var(--accent);display:grid;place-items:center;
+  transition:background .12s,transform .12s;touch-action:manipulation;
 }
+/* видимый отклик на касание: без него непонятно, попал ли палец по кнопке */
+.wcard .wplay:active,.speak:active,.opt-play:active,.ex-play:active,
+.abc-play:active,.lex-play:active{background:var(--accent);color:#fff;transform:scale(.92)}
 .wdetails{background:var(--surface-2);padding:12px 14px;border-top:1px solid var(--line)}
 .wdetails .mnemo{margin:0 0 10px}
 .wactions{display:flex;gap:8px;flex-wrap:wrap}
