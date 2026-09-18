@@ -3134,7 +3134,10 @@ const SPLASH_MIN = 2000;
 function hideSplash(now) {
   const sp = document.getElementById('splash');
   if (!sp || sp.classList.contains('out')) return;
-  const wait = now ? 0 : Math.max(0, SPLASH_MIN - performance.now());
+  // считаем от момента, когда заставка появилась, а не от начала загрузки:
+  // на медленной сети иначе две секунды истекали раньше, чем её становилось видно
+  const shown = window.SPLASH_AT || 0;
+  const wait = now ? 0 : Math.max(0, SPLASH_MIN - (performance.now() - shown));
   setTimeout(() => {
     sp.classList.add('out');
     setTimeout(() => sp.remove(), 420);
