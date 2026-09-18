@@ -80,45 +80,74 @@ dust_freq = round(60 / upm, 4)
 body = '\n'.join(
     f'      <path class="chalk" pathLength="1" style="--i:{i}" d="{d}"/>'
     for i, d in enumerate(paths))
-SPLASH_CSS = '#splash{ position:fixed;inset:0;z-index:200;display:grid;place-items:center; background:var(--board,#1d2421); transition:opacity .38s ease; } #splash.out{opacity:0;pointer-events:none} #splash .chalk-word{width:min(78vw,520px);height:auto;overflow:visible;position:relative} #splash .wood{position:absolute;inset:0;width:100%;height:100%;opacity:.6;overflow:hidden} #splash .chalk{ fill:#f1ede2;fill-opacity:0;stroke:#f1ede2;stroke-opacity:.92; stroke-linecap:round;stroke-linejoin:round; stroke-dasharray:1;stroke-dashoffset:1; animation:chalk-draw .75s cubic-bezier(.45,.05,.4,1) forwards, chalk-fill .4s ease-out forwards; animation-delay:calc(var(--i) * .12s), calc(.7s + var(--i) * .12s); } @keyframes chalk-draw{to{stroke-dashoffset:0}} @keyframes chalk-fill{to{fill-opacity:.9}} @media (prefers-reduced-motion: reduce){#splash{display:none}}'
+SPLASH_CSS = '#splash{ position:fixed;inset:0;z-index:200;display:grid;place-items:center; background:var(--board,#1d2421); transition:opacity .38s ease; } #splash.out{opacity:0;pointer-events:none} #splash .chalk-word{width:min(78vw,520px);height:auto;overflow:visible;position:relative} #splash .wood{position:absolute;inset:0;width:100%;height:100%} #splash .chalk{ fill:#f1ede2;fill-opacity:0;stroke:#f1ede2;stroke-opacity:.92; stroke-linecap:round;stroke-linejoin:round; stroke-dasharray:1;stroke-dashoffset:1; animation:chalk-draw .75s cubic-bezier(.45,.05,.4,1) forwards, chalk-fill .4s ease-out forwards; animation-delay:calc(var(--i) * .12s), calc(.7s + var(--i) * .12s); } @keyframes chalk-draw{to{stroke-dashoffset:0}} @keyframes chalk-fill{to{fill-opacity:.9}} @media (prefers-reduced-motion: reduce){#splash{display:none}}'
 
 svg = f'''<!-- splash:start -->
 <style>{SPLASH_CSS}</style>
 <div id="splash" aria-hidden="true" style="--board:{board};--board-deep:{board_deep}">
-  <svg class="wood" viewBox="0 0 400 900" preserveAspectRatio="xMidYMid slice">
-    <!-- Дерево столешницы: слой повёрнут, чтобы волокна шли по диагонали, и ровно такого
-         размера, чтобы после поворота закрывать экран (плюс запас на изгиб волокон).
-         Больше нельзя: Safari не рисует фильтр, если его область на экране с тройной
-         плотностью пикселей больше примерно 16 миллионов точек, — так дерево и пропадало.
-         Три слоя шума: длинные тонкие волокна с плавными изгибами, светлые прожилки
-         для глубины и короткие засечки-поры вдоль волокна. Зерно у каждого запуска
-         своё: номера шума перед показом меняет скрипт ниже. -->
-    <filter id="wood-grain" filterUnits="userSpaceOnUse" x="-258" y="-75" width="916" height="1050"
-            color-interpolation-filters="sRGB">
-      <feTurbulence data-rand type="fractalNoise" baseFrequency="0.0045 0.2" numOctaves="3" seed="23" result="fiber"/>
-      <feTurbulence data-rand type="fractalNoise" baseFrequency="0.0028 0.009" numOctaves="2" seed="5" result="bend"/>
-      <feDisplacementMap in="fiber" in2="bend" scale="70" xChannelSelector="R" yChannelSelector="G" result="grain"/>
-      <feColorMatrix in="grain" type="matrix" result="dark"
-        values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  2.1 0 0 0 -0.98"/>
-      <feColorMatrix in="grain" type="matrix" result="light"
-        values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  -2.2 0 0 0 0.5"/>
-      <feTurbulence data-rand type="fractalNoise" baseFrequency="0.045 0.75" numOctaves="1" seed="41" result="pore"/>
-      <feDisplacementMap in="pore" in2="bend" scale="70" xChannelSelector="R" yChannelSelector="G" result="porebent"/>
-      <feColorMatrix in="porebent" type="matrix" result="pores"
-        values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  7 0 0 0 -4.6"/>
-      <feMerge><feMergeNode in="dark"/><feMergeNode in="light"/><feMergeNode in="pores"/></feMerge>
-    </filter>
-    <g transform="rotate(-34 200 450)">
-      <rect x="-258" y="-75" width="916" height="1050" filter="url(#wood-grain)"/>
-    </g>
-  </svg>
+  <canvas class="wood" id="splash-wood"></canvas>
   <script>
-    /* у каждого открытия свой рисунок дерева; заодно запоминаем, когда заставка
-       появилась, — от этого момента, а не от начала загрузки, считаются её две секунды */
+    /* Дерево столешницы рисуется здесь же, скриптом, а не SVG-фильтром: фильтр
+       с шумом на весь экран Safari на iPhone считал по нескольку секунд, и всё это
+       время вместо заставки был белый экран. Скрипт укладывается в сотые доли секунды.
+       Рисунок тот же: длинные тонкие волокна, изогнутые медленным шумом, светлые
+       прожилки и короткие засечки-поры вдоль волокна; слой повёрнут на 34°, чтобы
+       волокна шли по диагонали. Зерно постоянное: рисунок всегда один и тот же.
+       Заодно запоминаем, когда заставка появилась, — от этого момента, а не от
+       начала загрузки, считаются её две секунды. */
     window.SPLASH_AT = performance.now();
     (function () {{
-      var t = document.querySelectorAll('#splash feTurbulence[data-rand]');
-      for (var i = 0; i < t.length; i++) t[i].setAttribute('seed', String(1 + Math.floor(Math.random() * 9999)));
+      var cv = document.getElementById('splash-wood');
+      var W = Math.max(1, innerWidth), H = Math.max(1, innerHeight);
+      cv.width = W; cv.height = H;
+      var ctx = cv.getContext && cv.getContext('2d');
+      if (!ctx) return;
+      // перемешанная таблица 0..255 — основа шума; перемешана по постоянному зерну
+      var P = new Uint8Array(512), i, j, t, seed = 20260918;
+      function rnd() {{ seed = (Math.imul(seed, 1103515245) + 12345) >>> 0; return (seed >>> 8) / 16777216; }}
+      for (i = 0; i < 256; i++) P[i] = i;
+      for (i = 255; i > 0; i--) {{ j = Math.floor(rnd() * (i + 1)); t = P[i]; P[i] = P[j]; P[j] = t; }}
+      for (i = 0; i < 256; i++) P[i + 256] = P[i];
+      function noise(x, y) {{            // гладкий шум 0..1
+        var xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+        xi &= 255; yi &= 255;
+        var u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+        var a = P[P[xi] + yi], b = P[P[xi + 1] + yi], c = P[P[xi] + yi + 1], d = P[P[xi + 1] + yi + 1];
+        var top = a + (b - a) * u, bot = c + (d - c) * u;
+        return (top + (bot - top) * v) / 255;
+      }}
+      function fbm(x, y, oct) {{         // несколько октав — от крупного к мелкому
+        var s = 0, amp = 1, tot = 0;
+        for (var o = 0; o < oct; o++) {{ s += (noise(x, y) - .5) * amp; tot += amp; x *= 2; y *= 2; amp *= .5; }}
+        return .5 + .8 * s / tot;
+      }}
+      var hex = getComputedStyle(cv.parentNode).getPropertyValue('--board').trim() || '#1d2421';
+      var br = parseInt(hex.substr(1, 2), 16), bg = parseInt(hex.substr(3, 2), 16), bb = parseInt(hex.substr(5, 2), 16);
+      // экран вписан в поле 400×900, как у обычной картинки «по размеру с обрезкой»
+      var k = Math.max(W / 400, H / 900), co = Math.cos(34 * Math.PI / 180), si = Math.sin(34 * Math.PI / 180);
+      var img = ctx.createImageData(W, H), px = img.data, n = 0, OP = .6;
+      for (var y = 0; y < H; y++) {{
+        var dy = (y - H / 2) / k;
+        for (var x = 0; x < W; x++) {{
+          var dx = (x - W / 2) / k;
+          var qx = dx * co - dy * si + 2000, qy = dx * si + dy * co + 2000;
+          // медленный шум изгибает волокна
+          qx += 70 * (fbm(qx * .0028, qy * .009, 2) - .5);
+          qy += 70 * (fbm(qx * .0028 + 57, qy * .009 + 131, 2) - .5);
+          // широкие годичные полосы + тонкие волокна поверх них
+          var ring = fbm(qx * .0016, qy * .035, 2);
+          var f = .55 * fbm(qx * .003, qy * .16, 4) + .45 * ring;
+          var p = noise(qx * .09, qy * 1.1);
+          var dk = Math.min(1, Math.max(0, 2.6 * f - 1.22)) * OP;      // тёмные волокна
+          var lt = Math.min(1, Math.max(0, .42 - 1.9 * f)) * OP;       // светлые прожилки
+          var pr = Math.min(1, Math.max(0, 6 * p - 5.1)) * OP;         // поры-засечки
+          var r = br, g = bg, b = bb, m = (1 - dk) * (1 - pr);
+          r = (r * (1 - lt) + 255 * lt) * m; g = (g * (1 - lt) + 255 * lt) * m; b = (b * (1 - lt) + 255 * lt) * m;
+          px[n] = r; px[n + 1] = g; px[n + 2] = b; px[n + 3] = 255; n += 4;
+        }}
+      }}
+      ctx.putImageData(img, 0, 0);
+      window.SPLASH_WOOD_MS = performance.now() - window.SPLASH_AT;
     }})();
   </script>
   <svg class="chalk-word" viewBox="{-pad:.0f} {-pad:.0f} {w:.0f} {h:.0f}" role="img">
