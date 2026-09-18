@@ -2270,6 +2270,7 @@ function alphabetQuiz() {
       <div class="word-tr">какой это звук?</div>
     </div>
     <div class="options">${opts.map((o, i) => `<button class="opt" data-i="${i}">${i + 1}. <b>${esc(o[3])}</b> — ${esc(o[4])}</button>`).join('')}</div>
+    <button class="btn primary alpha-next" hidden>Дальше →</button>
     <div class="abc">
       <button class="abc-toggle" aria-expanded="false">Слова на эту букву<i>▾</i></button>
       <div class="abc-list" hidden>
@@ -2318,11 +2319,17 @@ function alphabetQuiz() {
       if (opts[j][0] === a[0]) b.classList.add('right');
       else if (j === i) b.classList.add('wrong');
     });
-    setTimeout(() => { q.i++; render(); }, ok ? 600 : 1500);
+    box.querySelector('.sub').textContent = `Пройдено ${q.asked} · верно ${q.right}`;
+    // Сама карточка не перелистывается: после ответа человек может раскрыть
+    // слова на эту букву и послушать их — дальше он идёт, когда сам решит.
+    box.querySelector('.alpha-next').hidden = false;
   };
+  const next = () => { if (done) { q.i++; render(); } };
+  box.querySelector('.alpha-next').onclick = next;
   $$('.opt', box).forEach(b => b.onclick = () => answer(+b.dataset.i));
   S.alphaKeys = (e) => {
     if (/^[1-4]$/.test(e.key)) answer(+e.key - 1);
+    else if ((e.key === 'Enter' || e.key === ' ') && done) { e.preventDefault(); next(); }
     else if (e.key === 'Escape') leave();
   };
   return box;
