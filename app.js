@@ -3130,7 +3130,7 @@ function bindDataUpdates() {
    Название пишется мелом, пока грузятся данные, — ожидание прячется в анимацию.
    Убираем её, когда готово и то и другое: данные загружены и прошло время,
    за которое слово успевает написаться. Касание по заставке убирает её сразу. */
-const SPLASH_MIN = 1500;
+const SPLASH_MIN = 2000;
 function hideSplash(now) {
   const sp = document.getElementById('splash');
   if (!sp || sp.classList.contains('out')) return;

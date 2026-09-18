@@ -565,9 +565,9 @@ h2.sect + .menu-card{margin-bottom:18px}
   fill:#f1ede2;fill-opacity:0;stroke:#f1ede2;stroke-opacity:.92;
   stroke-linecap:round;stroke-linejoin:round;
   stroke-dasharray:1;stroke-dashoffset:1;
-  animation:chalk-draw .55s cubic-bezier(.45,.05,.4,1) forwards,
-            chalk-fill .32s ease-out forwards;
-  animation-delay:calc(var(--i) * .09s), calc(.5s + var(--i) * .09s);
+  animation:chalk-draw .75s cubic-bezier(.45,.05,.4,1) forwards,
+            chalk-fill .4s ease-out forwards;
+  animation-delay:calc(var(--i) * .12s), calc(.7s + var(--i) * .12s);
 }
 @keyframes chalk-draw{to{stroke-dashoffset:0}}
 @keyframes chalk-fill{to{fill-opacity:.9}}
