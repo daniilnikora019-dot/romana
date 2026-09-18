@@ -424,10 +424,11 @@ ROUTES.about = function () {
 
       ${L.about.tts}
 
-      <h2>Значки</h2>
-      <p class="sub">Значки разделов словаря — из открытого набора Fluent Emoji
-      (Microsoft, лицензия MIT). Остальные значки интерфейса нарисованы для этого
-      приложения.</p>
+      <h2>Значки и шрифт</h2>
+      <p class="sub">Значки разделов словаря и картинки азбуки — из открытого набора
+      Fluent Emoji (Microsoft, лицензия MIT). Остальные значки интерфейса нарисованы
+      для этого приложения. Надпись на заставке построена по шрифту Noto
+      (Google, лицензия SIL Open Font License 1.1).</p>
 
       <h2>Проверка</h2>
       <p class="sub">${L.about.check}</p>
@@ -3125,7 +3126,27 @@ function bindDataUpdates() {
 }
 
 
+/* ---------------- заставка ----------------
+   Название пишется мелом, пока грузятся данные, — ожидание прячется в анимацию.
+   Убираем её, когда готово и то и другое: данные загружены и прошло время,
+   за которое слово успевает написаться. Касание по заставке убирает её сразу. */
+const SPLASH_MIN = 1500;
+function hideSplash(now) {
+  const sp = document.getElementById('splash');
+  if (!sp || sp.classList.contains('out')) return;
+  const wait = now ? 0 : Math.max(0, SPLASH_MIN - performance.now());
+  setTimeout(() => {
+    sp.classList.add('out');
+    setTimeout(() => sp.remove(), 420);
+  }, wait);
+}
+function bindSplashSkip() {
+  const sp = document.getElementById('splash');
+  if (sp) sp.addEventListener('click', () => hideSplash(true));
+}
+
 async function boot() {
+  bindSplashSkip();
   S.prog = loadProgress();
   applyTheme();
   paintWallpaper();
@@ -3153,6 +3174,7 @@ async function boot() {
       setTimeout(() => toast('Озвучка не подгрузилась — обновите страницу (Cmd+Shift+R)'), 800);
     }
   } catch (e) {
+    hideSplash(true);
     $('#main').innerHTML = `<div class="empty"><div class="ico">${ico('warn')}</div><h3>Не удалось загрузить словарь</h3>
       <p>${L.launcherHint}</p></div>`;
     return;
@@ -3171,5 +3193,6 @@ async function boot() {
     if (S.route === 'stats' || S.route === 'home') render();
   });
   go(S.prog.onboarded ? 'home' : 'welcome');
+  hideSplash();
 }
 boot();
