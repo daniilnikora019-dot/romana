@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Заставка «мелом по доске»: переводит слово в контуры букв и вписывает в index.html.
 
-  ~/venvs/kartuli/bin/python3 tools/build_splash.py <слово> <шрифт.ttf>
+  ~/venvs/kartuli/bin/python3 tools/build_splash.py <слово> <шрифт.ttf> [<цвет иконки>]
 
 Буквы берутся из шрифта и сохраняются векторными контурами, по одному на букву:
 анимация проводит линию по каждому контуру с небольшой задержкой между буквами,
@@ -19,6 +19,23 @@ from fontTools.pens.transformPen import TransformPen
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 word, font_path = sys.argv[1], sys.argv[2]
+icon = sys.argv[3] if len(sys.argv) > 3 else '#26302b'
+
+
+def board_colors(hexcolor):
+    """Доска того же оттенка, что иконка, но тёмная: иначе белый мел не читается.
+    Светлота 14%, насыщенность чуть приглушена, чтобы цвет не спорил с надписью.
+    Второй цвет — для волокон дерева, ещё темнее."""
+    import colorsys
+    r, g, b = (int(hexcolor[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    hue, _, sat = colorsys.rgb_to_hls(r, g, b)
+    def mk(light, s_mul):
+        rr, gg, bb = colorsys.hls_to_rgb(hue, light, min(1, sat * s_mul))
+        return '#%02x%02x%02x' % (round(rr * 255), round(gg * 255), round(bb * 255))
+    return mk(0.14, 0.8), mk(0.07, 0.75)
+
+
+board, board_deep = board_colors(icon)
 
 font = TTFont(font_path)
 if 'fvar' in font:
@@ -62,7 +79,38 @@ body = '\n'.join(
     f'      <path class="chalk" pathLength="1" style="--i:{i}" d="{d}"/>'
     for i, d in enumerate(paths))
 svg = f'''<!-- splash:start -->
-<div id="splash" aria-hidden="true">
+<div id="splash" aria-hidden="true" style="--board:{board};--board-deep:{board_deep}">
+  <svg class="wood" viewBox="0 0 400 900" preserveAspectRatio="xMidYMid slice">
+    <!-- Дерево столешницы: слой шире экрана и повёрнут, чтобы волокна шли по диагонали.
+         Три слоя шума: длинные тонкие волокна с плавными изгибами, светлые прожилки
+         для глубины и короткие засечки-поры вдоль волокна. Зерно у каждого запуска
+         своё: номера шума перед показом меняет скрипт ниже. -->
+    <filter id="wood-grain" filterUnits="userSpaceOnUse" x="-500" y="-500" width="1400" height="1900"
+            color-interpolation-filters="sRGB">
+      <feTurbulence data-rand type="fractalNoise" baseFrequency="0.0045 0.2" numOctaves="3" seed="23" result="fiber"/>
+      <feTurbulence data-rand type="fractalNoise" baseFrequency="0.0028 0.009" numOctaves="2" seed="5" result="bend"/>
+      <feDisplacementMap in="fiber" in2="bend" scale="70" xChannelSelector="R" yChannelSelector="G" result="grain"/>
+      <feColorMatrix in="grain" type="matrix" result="dark"
+        values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  2.1 0 0 0 -0.98"/>
+      <feColorMatrix in="grain" type="matrix" result="light"
+        values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  -2.2 0 0 0 0.5"/>
+      <feTurbulence data-rand type="fractalNoise" baseFrequency="0.045 0.75" numOctaves="1" seed="41" result="pore"/>
+      <feDisplacementMap in="pore" in2="bend" scale="70" xChannelSelector="R" yChannelSelector="G" result="porebent"/>
+      <feColorMatrix in="porebent" type="matrix" result="pores"
+        values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  7 0 0 0 -4.6"/>
+      <feMerge><feMergeNode in="dark"/><feMergeNode in="light"/><feMergeNode in="pores"/></feMerge>
+    </filter>
+    <g transform="rotate(-34 200 450)">
+      <rect x="-500" y="-500" width="1400" height="1900" filter="url(#wood-grain)"/>
+    </g>
+  </svg>
+  <script>
+    /* у каждого открытия свой рисунок дерева */
+    (function () {{
+      var t = document.querySelectorAll('#splash feTurbulence[data-rand]');
+      for (var i = 0; i < t.length; i++) t[i].setAttribute('seed', String(1 + Math.floor(Math.random() * 9999)));
+    }})();
+  </script>
   <svg class="chalk-word" viewBox="{-pad:.0f} {-pad:.0f} {w:.0f} {h:.0f}" role="img">
     <defs>
       <filter id="chalk-edge" x="-10%" y="-10%" width="120%" height="120%">
