@@ -516,6 +516,27 @@ h2.sect + .menu-card{margin-bottom:18px}
 .quiz-why .btn{margin-top:6px}
 .quiz-why{scroll-margin-bottom:calc(96px + env(safe-area-inset-bottom))}
 
+/* выбор направления тренировки: букву узнаём по звуку или звук по букве */
+.alpha-modes{display:grid;gap:10px;margin:0 0 16px}
+.mode-card{
+  display:grid;grid-template-columns:auto 1fr;column-gap:12px;row-gap:3px;align-items:center;
+  padding:14px 16px;border-radius:var(--r-md);text-align:left;
+  background:var(--surface);border:1px solid var(--line);transition:border-color .13s,background .13s;
+}
+.mode-card .icn{grid-row:span 2;width:20px;height:20px;color:var(--accent)}
+.mode-card b{font-size:15px;font-weight:640}
+.mode-card span{font-size:13px;color:var(--muted);line-height:1.45}
+
+/* обратный режим: звук написан словами, а варианты — сами буквы с озвучкой */
+.alpha-sound{font-size:23px;font-weight:600;line-height:1.35;margin:4px 0 2px;letter-spacing:-.3px}
+.opt-letter{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px}
+.opt-letter b{font-size:30px;font-weight:600;line-height:1.15}
+.opt-play{
+  width:34px;height:34px;flex:0 0 34px;border-radius:50%;background:var(--accent-soft);
+  color:var(--accent);display:grid;place-items:center;
+}
+.opt-play .icn{width:16px;height:16px;vertical-align:0}
+
 /* карточка буквы в тренировке: ниже обычной, чтобы под вариантами помещалась азбука */
 .alpha-card{padding:20px 18px 18px}
 .alpha-card .word-ka{font-size:52px;margin:0 0 4px}
@@ -772,6 +793,8 @@ canvas{display:block;width:100%}
   .menu-row:hover{background:var(--surface-2)}
   .speak:hover{background:var(--accent);color:#fff;transform:scale(1.05)}
   .opt:hover:not(:disabled):not(.done){border-color:var(--accent);background:var(--accent-soft)}
+  .mode-card:hover{border-color:var(--accent);background:var(--accent-soft)}
+  .opt-play:hover{background:var(--accent);color:#fff}
   .letters button:hover{background:var(--accent-soft);border-color:var(--accent)}
   .tools button:hover:not(:disabled){background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line)}
   .grade-row button:first-child:hover:not(:disabled){background:var(--clay-soft);color:var(--clay)}

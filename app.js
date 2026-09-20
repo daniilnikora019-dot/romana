@@ -2197,7 +2197,16 @@ ROUTES.alphabet = function () {
     ${subHead(L.alphabet.title, 'menu')}
     <div class="page-head">
       <div><p class="sub">${L.alphabet.lead}</p></div>
-      <button class="btn primary" id="a-quiz">${ico('target')} Тренировка букв</button>
+    </div>
+    <div class="alpha-modes">
+      <button class="mode-card" data-mode="sound">
+        ${ico('target')}<b>Буква → звук</b>
+        <span>показываем букву — выбираете, как она звучит</span>
+      </button>
+      <button class="mode-card" data-mode="letter">
+        ${ico('target')}<b>Звук → буква</b>
+        <span>показываем звук — выбираете букву; каждую можно послушать</span>
+      </button>
     </div>
     <div class="card" style="margin-bottom:16px;font-size:13.5px;line-height:1.6;color:var(--muted)">
       ${L.alphabet.note}
@@ -2216,7 +2225,7 @@ ROUTES.alphabet = function () {
     const a = S.alphabet[+c.dataset.i];
     c.onclick = (e) => speak(e.target.closest('.ex') ? a[5] : a[1]);
   });
-  $('#a-quiz', box).onclick = () => { startAlphaQuiz(); render(); };
+  $$('.mode-card', box).forEach(b => b.onclick = () => { startAlphaQuiz(b.dataset.mode); render(); });
   return box;
 };
 
@@ -2246,8 +2255,10 @@ function alphaDeck(prev) {
   if (prev && deck.length > 1 && deck[0][0] === prev) deck.push(deck.shift());
   return deck;
 }
-function startAlphaQuiz() {
-  S.alphaQuiz = { deck: alphaDeck(), i: 0, right: 0, asked: 0, round: 1 };
+/* mode: 'sound' — показываем букву, спрашиваем звук; 'letter' — наоборот.
+   Обратный режим сложнее: звук по-русски один, а похожих букв в алфавите несколько. */
+function startAlphaQuiz(mode) {
+  S.alphaQuiz = { mode: mode === 'letter' ? 'letter' : 'sound', deck: alphaDeck(), i: 0, right: 0, asked: 0, round: 1 };
 }
 function alphabetQuiz() {
   const q = S.alphaQuiz;
@@ -2264,12 +2275,22 @@ function alphabetQuiz() {
       <p class="sub">Пройдено ${q.asked} · верно ${q.right}</p>
       <span class="head-spacer"></span>
     </div>
+    ${q.mode === 'letter' ? `
     <div class="word-card alpha-card">
-      <div class="word-ka ka">${a[0]}</div>
+      <div class="alpha-sound">${esc(a[4])}</div>
+      <div class="word-tr">какая это буква?</div>
+    </div>
+    <div class="options">${opts.map((o, i) => `
+      <button class="opt opt-letter" data-i="${i}">
+        <b class="${L.script}">${o[0]}</b>
+        <span class="opt-play" data-p="${i}" title="Послушать">${ico('play')}</span>
+      </button>`).join('')}</div>` : `
+    <div class="word-card alpha-card">
+      <div class="word-ka ${L.script}">${a[0]}</div>
       <button class="speak">${ico('play')}</button>
       <div class="word-tr">какой это звук?</div>
     </div>
-    <div class="options">${opts.map((o, i) => `<button class="opt" data-i="${i}">${i + 1}. <b>${esc(o[3])}</b> — ${esc(o[4])}</button>`).join('')}</div>
+    <div class="options">${opts.map((o, i) => `<button class="opt" data-i="${i}">${i + 1}. <b>${esc(o[3])}</b> — ${esc(o[4])}</button>`).join('')}</div>`}
     <button class="btn primary alpha-next" hidden>Дальше →</button>
     <div class="abc">
       <button class="abc-toggle" aria-expanded="false">Слова на эту букву<i>▾</i></button>
@@ -2299,7 +2320,11 @@ function alphabetQuiz() {
   // его выдавала бы. Послушать до ответа можно кнопкой — это выбор человека.
   // После ответа буква произносится сама: подсказывать уже нечего, зато слышно,
   // как она на самом деле звучит — и при верном ответе, и при ошибке.
-  box.querySelector('.speak').onclick = () => speak(a[1]);
+  const speakBtn = box.querySelector('.speak');
+  if (speakBtn) speakBtn.onclick = () => speak(a[1]);
+  // В обратном режиме послушать можно любой из вариантов: это подсказка,
+  // но её человек включает сам — как и кнопку звука в прямом режиме.
+  $$('.opt-play', box).forEach(p => p.onclick = (e) => { e.stopPropagation(); speak(opts[+p.dataset.p][1]); });
   const leave = () => {
     const asked = q.asked, right = q.right;
     S.alphaQuiz = null; S.alphaKeys = null;
