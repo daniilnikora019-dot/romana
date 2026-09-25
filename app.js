@@ -85,7 +85,7 @@ function wp(id) {                                   // состояние сло
 function setWp(id, v) { S.prog.w[id] = v; saveProgress(); }
 
 function dayRec(d) {
-  if (!S.prog.days[d]) S.prog.days[d] = { rev: 0, new: 0, known: 0, started: 0, drilled: 0 };
+  if (!S.prog.days[d]) S.prog.days[d] = { rev: 0, new: 0, known: 0, started: 0, drilled: 0, ans: 0 };
   if (S.prog.days[d].started === undefined) S.prog.days[d].started = 0;
   if (S.prog.days[d].drilled === undefined) S.prog.days[d].drilled = 0;
   return S.prog.days[d];
@@ -94,13 +94,29 @@ function dayRec(d) {
 function newLeftToday() {
   return Math.max(0, S.prog.set.newPerDay - dayRec(today()).started);
 }
+/* День занятий — день, когда был хотя бы один ответ на слово: в повторении или
+   в закреплении. Взять слово в работу или отметить «знаю» — ещё не занятие:
+   иначе одно слово, взятое мимоходом перед полуночью, продлевало серию на день.
+   По этому правилу считаются и серия, и кружки недели, и «слов в активный день».
+   В записях, сделанных до появления счётчика ответов, ответ виден по повторениям,
+   закреплённым и выученным словам — все они бывают только после ответа. */
+function dayActive(rec) {
+  return !!rec && !!(rec.ans || rec.rev || rec.drilled || rec.new);
+}
+/* Серия — дни занятий подряд, считая от сегодня, а если сегодня ещё не
+   занимались — от вчера. Считается по записям дней при каждом показе, поэтому
+   пропущенный день обнуляет её сразу, а не при следующем ответе. */
+function streakNow() {
+  const d = new Date();
+  if (!dayActive(S.prog.days[dateKey(d)])) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (dayActive(S.prog.days[dateKey(d)])) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
 function touchStreak() {
-  const t = today(), last = S.prog.lastActive;
-  if (last === t) return;
-  const y = dateKey(new Date(Date.now() - 864e5));
-  S.prog.streak = (last === y) ? S.prog.streak + 1 : 1;
+  S.prog.streak = streakNow();
   S.prog.best = Math.max(S.prog.best || 0, S.prog.streak);
-  S.prog.lastActive = t;
+  S.prog.lastActive = today();
 }
 
 /* ---------------- выборки ---------------- */
@@ -502,7 +518,7 @@ ROUTES.home = function () {
   const week = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((nm, i) => {
     const d = new Date(mon); d.setDate(d.getDate() + i);
     const key = dateKey(d), rec = S.prog.days[key];
-    return { nm, key, active: !!(rec && (rec.rev || rec.started || rec.known)),
+    return { nm, key, active: dayActive(rec),
              today: key === today(), future: d > new Date() };
   });
 
@@ -573,8 +589,8 @@ ROUTES.home = function () {
             <div class="wd ${d.active ? 'on' : ''} ${d.today ? 'now' : ''} ${d.future ? 'future' : ''}">
               <span>${d.nm}</span></div>`).join('')}</div>
           <div class="tiles">
-            <div class="tile"><b class="num">${plural(S.prog.streak, 'день', 'дня', 'дней')}</b><span>вы учите слова</span></div>
-            <div class="tile"><b class="num">${plural(S.prog.best || 0, 'день', 'дня', 'дней')}</b><span>рекорд подряд</span></div>
+            <div class="tile"><b class="num">${plural(streakNow(), 'день', 'дня', 'дней')}</b><span>вы учите слова</span></div>
+            <div class="tile"><b class="num">${plural(Math.max(S.prog.best || 0, streakNow()), 'день', 'дня', 'дней')}</b><span>рекорд подряд</span></div>
           </div>
         </div>
       </div>
@@ -964,6 +980,7 @@ function answerGrade(w, ok, drill) {
     p.r = Math.max(0, (p.r || 0) - 1);
     p.s = 'learning'; p.d = Date.now() + 10 * 60e3;
   }
+  dayRec(t).ans = (dayRec(t).ans || 0) + 1;
   touchStreak(); setWp(w.id, p);
   return p;
 }
@@ -1082,7 +1099,7 @@ function applyNewWordChoice(w, a) {
     dayRec(today()).started++;
     markPending(w.id, true);
   }
-  touchStreak();
+  saveProgress();
 }
 
 /* Карточка знакомства со словом: только «уже знаю» или «учить». */
@@ -2604,10 +2621,10 @@ ROUTES.stats = function () {
   const [, scale, count, periodLabel] = SCALES[key];
   const buckets = statsBuckets(scale, key === 'all' ? monthsOfHistory() : count);
   const sum = (f) => buckets.reduce((s, b) => s + b[f], 0);
-  const activeDays = Object.values(S.prog.days || {}).filter(d => d.rev || d.new || d.known).length;
-  // всего закреплено за всю историю — та же величина, что и в колонке периода
-  const totalDrilled = Object.values(S.prog.days || {})
-    .reduce((n, d) => n + (d.drilled === undefined ? (d.started || 0) : d.drilled), 0);
+  const activeDays = Object.values(S.prog.days || {}).filter(dayActive).length;
+  // итоги под графиком — ровно за то, что на нём нарисовано; «за всё время» — отдельная шкала
+  const span = key === 'all' ? 'всё время'
+    : plural(count, ...{ day: ['день', 'дня', 'дней'], week: ['неделю', 'недели', 'недель'], month: ['месяц', 'месяца', 'месяцев'] }[scale]);
 
   const byLevel = {};
   for (const l of LEVELS) byLevel[l] = { total: 0, m: 0, l: 0, k: 0 };
@@ -2624,11 +2641,28 @@ ROUTES.stats = function () {
       const st = wp(w.id).s;
       if (st === 'mastered') m++; else if (st === 'learning') l++; else if (st === 'known') k++;
     }
-    return { cat, total, m, l, k, done: m + k };
-  }).sort((a, b) => (b.m / (b.total || 1)) - (a.m / (a.total || 1)));
+    return { cat, total, m, l, k, done: m + l + k };
+  }).sort((a, b) => (b.done / (b.total || 1)) - (a.done / (a.total || 1)) || b.m - a.m);
 
-  const legendRow = (color, name, total, period) => `<div class="mrow">
-      <span class="mtot num">${total}</span><span class="mper num">${period}</span>
+  /* Полоска темы или уровня: длина — сколько слов уже в работе, цвета внутри —
+     в каком они состоянии. Число справа — ровно длина полоски, чтобы подпись
+     и картинка не спорили: раньше справа стояли только выученные («0/24»)
+     при полоске на две трети. */
+  const barRow = (name, b) => {
+    const pc = (n) => b.total ? n / b.total * 100 : 0;
+    return `<div class="cp-row"><span class="nm">${name}</span>
+      <span class="bar"><i style="width:${pc(b.m)}%;background:var(--green)"></i>
+      <i style="width:${pc(b.l)}%;background:var(--gold)"></i>
+      <i style="width:${pc(b.k)}%;background:var(--slate)"></i></span>
+      <span class="val">${b.m + b.l + b.k}/${b.total}</span></div>`;
+  };
+  const barLegend = `<div class="bar-legend">
+      <span><i style="background:var(--green)"></i>выучено</span>
+      <span><i style="background:var(--gold)"></i>изучается</span>
+      <span><i style="background:var(--slate)"></i>уже известные</span></div>`;
+
+  const legendRow = (color, name, value) => `<div class="mrow">
+      <span class="mtot num">${value}</span>
       <span class="mdot" style="background:${color}"></span><span class="mname">${name}</span></div>`;
 
   const box = el(`<div>
@@ -2647,7 +2681,7 @@ ROUTES.stats = function () {
       <div class="stat purple"><div class="n num">${c.known}</div><div class="l">Уже известные</div></div>
       <div class="stat blue"><div class="n num">${((c.mastered + c.known + c.learning) / c.total * 100).toFixed(1)}%</div>
         <div class="l">Охват словаря</div></div>
-      <div class="stat"><div class="n num">${ico('fire')} ${S.prog.streak}</div><div class="l">Серия дней · рекорд ${S.prog.best || 0}</div></div>
+      <div class="stat"><div class="n num">${ico('fire')} ${streakNow()}</div><div class="l">Серия дней · рекорд ${Math.max(S.prog.best || 0, streakNow())}</div></div>
       <div class="stat"><div class="n num">${activeDays ? (sum('rev') / Math.max(1, activeDays)).toFixed(1) : 0}</div>
         <div class="l">Слов в активный день</div></div>
     </div>
@@ -2657,11 +2691,11 @@ ROUTES.stats = function () {
       <p class="cap">Все категории и уровни · одно слово считается один раз в сутки</p>
       <div class="chart-scroll"><canvas id="c-rev" height="164"></canvas></div>
       <div class="metrics">
-        <div class="mrow mhead"><span class="mtot">Всего</span><span class="mper">${periodLabel.replace('за ', '')}</span><span></span><span></span></div>
-        ${legendRow('var(--green)', 'Полностью выучено', c.mastered, sum('new'))}
-        ${legendRow('var(--accent)', 'Повторено (уникальных)', '—', sum('rev'))}
-        ${legendRow('var(--gold)', 'Закреплено новых слов', totalDrilled, sum('drilled'))}
-        ${legendRow('var(--slate)', 'Уже известные', c.known, sum('known'))}
+        <div class="mhead">Итого за ${span}</div>
+        ${legendRow('var(--green)', 'Полностью выучено', sum('new'))}
+        ${legendRow('var(--accent)', 'Повторено', sum('rev'))}
+        ${legendRow('var(--gold)', 'Закреплено новых слов', sum('drilled'))}
+        ${legendRow('var(--slate)', 'Уже известные', sum('known'))}
       </div>
     </div>
 
@@ -2672,22 +2706,12 @@ ROUTES.stats = function () {
     </div>
 
     <div class="grid" style="grid-template-columns:1fr 1fr">
-      <div class="chart-card"><h3>По уровням</h3><p class="cap">Сколько слов каждого уровня пройдено</p>
-        <div class="cat-progress">${LEVELS.map(l => {
-          const b = byLevel[l];
-          return `<div class="cp-row"><span class="nm"><b>${l}</b></span>
-            <span class="bar"><i style="width:${b.total ? b.m / b.total * 100 : 0}%;background:var(--green)"></i>
-            <i style="width:${b.total ? b.l / b.total * 100 : 0}%;background:var(--gold)"></i>
-            <i style="width:${b.total ? b.k / b.total * 100 : 0}%;background:var(--slate)"></i></span>
-            <span class="val">${b.total ? Math.round(b.m / b.total * 100) : 0}% · ${b.m}/${b.total}</span></div>`;
-        }).join('')}</div></div>
-      <div class="chart-card"><h3>По категориям</h3><p class="cap">Доля полностью выученных слов темы · все ${S.cats.length} категорий</p>
-        <div class="cat-progress">${catRows.map(r => `
-          <div class="cp-row"><span class="nm">${catIcon(r.cat.id)} ${esc(r.cat.name)}</span>
-            <span class="bar"><i style="width:${r.total ? r.m / r.total * 100 : 0}%;background:var(--green)"></i>
-            <i style="width:${r.total ? r.l / r.total * 100 : 0}%;background:var(--gold)"></i>
-            <i style="width:${r.total ? r.k / r.total * 100 : 0}%;background:var(--slate)"></i></span>
-            <span class="val">${r.total ? Math.round(r.m / r.total * 100) : 0}% · ${r.m}/${r.total}</span></div>`).join('')}</div></div>
+      <div class="chart-card"><h3>По уровням</h3><p class="cap">Сколько слов уровня уже в работе — из всех слов уровня</p>
+        ${barLegend}
+        <div class="cat-progress">${LEVELS.map(l => barRow(`<b>${l}</b>`, byLevel[l])).join('')}</div></div>
+      <div class="chart-card"><h3>По категориям</h3><p class="cap">Сколько слов темы уже в работе — из всех слов темы · ${plural(S.cats.length, 'категория', 'категории', 'категорий')}</p>
+        ${barLegend}
+        <div class="cat-progress">${catRows.map(r => barRow(`${catIcon(r.cat.id)} ${esc(r.cat.name)}`, r)).join('')}</div></div>
     </div>
   </div>`);
   bindSubHead(box);
