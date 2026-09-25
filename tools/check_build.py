@@ -7,6 +7,12 @@ errors = []
 
 data = json.load(open(f'{ROOT}/data/words-ro.json', encoding='utf-8'))
 words = data['words']
+# у каждого слова ровно одна тема: иначе суммы по темам не сходятся с размером словаря
+several = [w['ka'] for w in words if len(w.get('cats') or []) != 1]
+if several:
+    errors.append(f'слов не с одной темой: {len(several)}, например {several[:3]}')
+if sum(c['all'] for c in data['categories']) != len(words):
+    errors.append('сумма слов по темам не равна размеру словаря')
 if len(words) < 4000:
     errors.append(f'в словаре только {len(words)} лексем — ожидалось минимум 4000')
 

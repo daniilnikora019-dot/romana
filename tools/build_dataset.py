@@ -2,7 +2,7 @@
 """Сборка словаря: ручное ядро + Викисловарь ka-ru, с категориями, уровнями и транслитерацией."""
 import json, re, glob, os, sys, collections, hashlib
 
-BASE = os.path.expanduser('~/Library/Application Support/romana')
+BASE = os.path.expanduser('~/Developer/apps/romana')
 WIKT = '/tmp/ro_ru_wikt.jsonl'
 FREQ_FILES = ['/tmp/ron_news_2022_300K/ron_news_2022_300K-words.txt',
               '/tmp/ron_wikipedia_2021_300K/ron_wikipedia_2021_300K-words.txt']
@@ -371,7 +371,10 @@ for i, ka in enumerate(order):
     # q=1 — живое слово для тренировок; q=0 — редкий синоним, остаётся только в словаре
     q = 1 if (e['src'] == 'core' or e['f'] > 0) else 0
     words.append({'id': hashlib.sha1(ka.encode('utf-8')).hexdigest()[:10], 'ka': e['ka'], 'tr': e['tr'], 'ru': e['ru'],
-                  'cats': e['cats'] or ['general'], 'lvl': e['lvl'],
+                  # одна тема на слово — первая, то есть ручная, если она есть: тогда
+                  # суммы по темам сходятся с размером словаря и статистика тем ничего не
+                  # считает дважды
+                  'cats': (e['cats'] or ['general'])[:1], 'lvl': e['lvl'],
                   'f': e['f'], 'src': e['src'], 'pos': e.get('pos', ''), 'q': q})
 
 trainable = sum(w['q'] for w in words)
