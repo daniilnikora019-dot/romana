@@ -2637,25 +2637,15 @@ ROUTES.stats = function () {
       const st = wp(w.id).s;
       if (st === 'mastered') m++; else if (st === 'learning') l++; else if (st === 'known') k++;
     }
-    return { cat, total, m, l, k, done: m + l + k };
-  }).sort((a, b) => (b.done / (b.total || 1)) - (a.done / (a.total || 1)) || b.m - a.m);
+    return { cat, total, m, l, k };
+  }).sort((a, b) => (b.m / (b.total || 1)) - (a.m / (a.total || 1)) || b.m - a.m);
 
-  /* Полоска темы или уровня: длина — сколько слов уже в работе, цвета внутри —
-     в каком они состоянии. Число справа — ровно длина полоски, чтобы подпись
-     и картинка не спорили: раньше справа стояли только выученные («0/24»)
-     при полоске на две трети. */
-  const barRow = (name, b) => {
-    const pc = (n) => b.total ? n / b.total * 100 : 0;
-    return `<div class="cp-row"><span class="nm">${name}</span>
-      <span class="bar"><i style="width:${pc(b.m)}%;background:var(--green)"></i>
-      <i style="width:${pc(b.l)}%;background:var(--gold)"></i>
-      <i style="width:${pc(b.k)}%;background:var(--slate)"></i></span>
-      <span class="val">${b.m + b.l + b.k}/${b.total}</span></div>`;
-  };
-  const barLegend = `<div class="bar-legend">
-      <span><i style="background:var(--green)"></i>Выучено</span>
-      <span><i style="background:var(--gold)"></i>Изучается</span>
-      <span><i style="background:var(--slate)"></i>Уже знаю</span></div>`;
+  /* Полоска темы или уровня — одна величина: доля выученных слов из всех слов
+     темы. Число справа — ровно длина полоски, поэтому легенда не нужна.
+     Слова в изучении сюда не входят: это ещё не результат. */
+  const barRow = (name, b) => `<div class="cp-row"><span class="nm">${name}</span>
+      <span class="bar"><i style="width:${b.total ? b.m / b.total * 100 : 0}%;background:var(--green)"></i></span>
+      <span class="val">${b.m}/${b.total}</span></div>`;
 
   const legendRow = (color, name, value) => `<div class="mrow">
       <span class="mtot num">${value}</span>
@@ -2702,11 +2692,9 @@ ROUTES.stats = function () {
     </div>
 
     <div class="grid" style="grid-template-columns:1fr 1fr">
-      <div class="chart-card"><h3>По уровням</h3><p class="cap">Сколько слов уровня уже в работе — из всех слов уровня</p>
-        ${barLegend}
+      <div class="chart-card"><h3>По уровням</h3><p class="cap">Сколько слов уровня выучено — из всех слов уровня</p>
         <div class="cat-progress">${LEVELS.map(l => barRow(`<b>${l}</b>`, byLevel[l])).join('')}</div></div>
-      <div class="chart-card"><h3>По категориям</h3><p class="cap">Сколько слов темы уже в работе — из всех слов темы · ${plural(S.cats.length, 'категория', 'категории', 'категорий')}</p>
-        ${barLegend}
+      <div class="chart-card"><h3>По категориям</h3><p class="cap">Сколько слов темы выучено — из всех слов темы · ${plural(S.cats.length, 'категория', 'категории', 'категорий')}</p>
         <div class="cat-progress">${catRows.map(r => barRow(`${catIcon(r.cat.id)} ${esc(r.cat.name)}`, r)).join('')}</div></div>
     </div>
   </div>`);

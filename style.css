@@ -713,10 +713,6 @@ canvas{display:block;width:100%}
 .mrow .mname{color:var(--text-2)}
 .legend{display:flex;gap:18px;font-size:14px;color:var(--text-2);margin-top:14px;flex-wrap:wrap;align-items:center}
 .cat-progress{display:flex;flex-direction:column;gap:9px;max-height:400px;overflow-y:auto;padding-right:6px}
-/* что значат цвета в полосках тем и уровней */
-.bar-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin:-6px 0 14px}
-.bar-legend span{display:inline-flex;align-items:center;gap:6px}
-.bar-legend i{width:10px;height:10px;border-radius:3px;flex:0 0 10px}
 .cp-row{display:flex;align-items:center;gap:12px;font-size:12.5px}
 .cp-row .nm{width:180px;flex:0 0 180px;display:flex;align-items:center;gap:7px;color:var(--text-2)}
 .cp-row .bar{flex:1;height:6px;background:var(--surface-2);border-radius:4px;overflow:hidden;display:flex}
