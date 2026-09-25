@@ -580,9 +580,9 @@ ROUTES.home = function () {
                 <b class="num">${donePct}%</b><span>цель дня</span></div>
             </div>
             <div class="goal-list">
-              <div class="goal-row"><span>Взято в изучение</span><b>${goalText(t.started, goalNew)}</b></div>
-              <div class="goal-row"><span>Выучено сегодня</span><b>${t.new}</b></div>
-              <div class="goal-row"><span>Отмечено «уже знаю»</span><b>${t.known}</b></div>
+              <div class="goal-row"><span>взято в изучение</span><b>${goalText(t.started, goalNew)}</b></div>
+              <div class="goal-row"><span>выучено</span><b>${t.new}</b></div>
+              <div class="goal-row"><span>уже знаю</span><b>${t.known}</b></div>
             </div>
           </div>
           <div class="week">${week.map(d => `
@@ -2686,9 +2686,9 @@ ROUTES.stats = function () {
       <div class="chart-scroll"><canvas id="c-rev" height="164"></canvas></div>
       <div class="metrics">
         <div class="mhead">Итого за ${span}</div>
-        ${legendRow('var(--gold)', 'Взято в изучение', sum('started'))}
-        ${legendRow('var(--green)', 'Выучено', sum('new'))}
-        ${legendRow('var(--slate)', 'Отмечено «уже знаю»', sum('known'))}
+        ${legendRow('var(--gold)', 'взято в изучение', sum('started'))}
+        ${legendRow('var(--green)', 'выучено', sum('new'))}
+        ${legendRow('var(--slate)', 'уже знаю', sum('known'))}
       </div>
     </div>
 
