@@ -71,18 +71,25 @@ function loadProgress() {
   return defaultProgress();
 }
 let saveTimer = null;
+/* Номер формата прогресса. Меняется, когда меняется устройство данных: по нему
+   и приложение, и сервер понимают, как читать сохранённую копию. */
+const PROGRESS_VERSION = 1;
 function saveProgress() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
+    S.prog.ver = PROGRESS_VERSION;
     try { localStorage.setItem(LS_KEY, JSON.stringify(S.prog)); }
     catch (e) { toast('Не удалось сохранить прогресс'); }
+    syncSoon();
   }, 250);
 }
 
 function wp(id) {                                   // состояние слова
   return S.prog.w[id] || { s: 'new', r: 0, d: 0, lr: null, e: 0 };
 }
-function setWp(id, v) { S.prog.w[id] = v; saveProgress(); }
+/* у каждого слова — время последнего изменения: когда устройств станет несколько,
+   их прогресс сливается по словам, а не «последний файл затирает всё» */
+function setWp(id, v) { v.t = Date.now(); S.prog.w[id] = v; saveProgress(); }
 
 function dayRec(d) {
   if (!S.prog.days[d]) S.prog.days[d] = { rev: 0, new: 0, known: 0, started: 0, drilled: 0, ans: 0 };
@@ -246,6 +253,7 @@ const ICONS = {
   warn:    '<path d="M12 3.6 21 19.6H3z"/><path d="M12 9.8v4.2M12 17h.01"/>',
   clock:   '<circle cx="12" cy="12" r="8.6"/><path d="M12 6.8V12l3.4 2"/>',
   info:    '<circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5M12 7.9h.01"/>',
+  cloud:   '<path d="M7.2 18.6h10a4.2 4.2 0 0 0 .7-8.35A6 6 0 0 0 6.4 9.3a4.7 4.7 0 0 0 .8 9.3z"/>',
 };
 /* значок вставляется в разметку строкой; размер задаётся из CSS кеглем места,
    куда он попал, поэтому один и тот же значок годится и для кнопки, и для строки */
@@ -2732,6 +2740,9 @@ ROUTES.settings = function () {
     <p class="set-note">Прогресс хранится только на этом устройстве. Если удалить значок с экрана
       «Домой», iOS сотрёт его вместе с приложением — поэтому время от времени сохраняйте копию.</p>
     <div class="menu-card">
+      <button class="menu-row" id="s-sync"><span class="mi">${ico('cloud')}</span>
+        <span class="mt"><b>Копия на сервере</b><i id="s-sync-st">${syncStatusText()}</i></span>
+        <span class="ma">${ico('refresh')}</span></button>
       <button class="menu-row" id="s-copy"><span class="mi">${ico('clip')}</span>
         <span class="mt"><b>Скопировать код</b><i>Весь прогресс текстом — сохраните его в Заметках или письме себе</i></span></button>
       <button class="menu-row" id="s-paste"><span class="mi">${ico('again')}</span>
@@ -2792,6 +2803,14 @@ ROUTES.settings = function () {
     const out = $('#s-check-out', bg) || el('<pre id="s-check-out"></pre>');
     out.textContent = lines.join('\n');
     $('#s-check-slot', bg).appendChild(out);
+  };
+  $('#s-sync', bg).onclick = async () => {
+    const st = $('#s-sync-st', bg);
+    st.textContent = 'сохраняю…';
+    syncDirty = true;
+    const ok = await syncPush();
+    st.textContent = syncStatusText();
+    toast(ok ? 'Копия сохранена' : 'Не удалось сохранить копию');
   };
   $('#s-copy', bg).onclick = () => {
     // Safari отдаёт буфер обмена только тому вызову, что начался прямо в обработчике
@@ -2880,6 +2899,117 @@ ROUTES.settings = function () {
   };
   return bg;
 };
+
+/* ---------------- копия прогресса на сервере ----------------
+   Главное хранилище — по-прежнему телефон: приложение работает без сети, а на
+   сервер (Supabase) уходит копия. Входа нет: при первом сохранении приложение
+   само заводит анонимный аккаунт и дальше пишет от его имени; чужие строки
+   правила базы не показывают. Ключ ниже публичный по устройству — он только
+   открывает дверь, а что за ней можно, решают правила базы.
+   Сохраняем не на каждый ответ, а не чаще раза в две минуты и ещё раз, когда
+   приложение сворачивают. Весь обмен — в этих функциях: сменится хранилище —
+   меняется только этот раздел. */
+const SYNC = {
+  url: 'https://lvkjktepfspbmwfyldxm.supabase.co',
+  key: 'sb_publishable_X8pUVRuMBN-Y7rmQ_KZWNQ_h6GzZq6F',
+  every: 2 * 60e3,
+};
+const SYNC_KEY = `${L.key}_sync_v1`;
+let syncTimer = null, syncBusy = false, syncDirty = false;
+
+function syncState() {
+  try { return JSON.parse(localStorage.getItem(SYNC_KEY)) || {}; } catch (e) { return {}; }
+}
+function setSyncState(patch) {
+  const st = Object.assign(syncState(), patch);
+  try { localStorage.setItem(SYNC_KEY, JSON.stringify(st)); } catch (e) {}
+  return st;
+}
+
+/* Действующий пропуск: свежий — как есть, истёкший — продлеваем, а если
+   аккаунта ещё нет — заводим анонимный. Если продлить не дала сеть, новый
+   аккаунт не заводим: иначе копия разъехалась бы по двум аккаунтам. */
+async function syncToken() {
+  let st = syncState();
+  const now = Date.now() / 1000;
+  if (st.access && st.exp - 60 > now) return st.access;
+  const headers = { apikey: SYNC.key, 'Content-Type': 'application/json' };
+  let r = null;
+  if (st.refresh) {
+    r = await fetch(`${SYNC.url}/auth/v1/token?grant_type=refresh_token`,
+      { method: 'POST', headers, body: JSON.stringify({ refresh_token: st.refresh }) });
+    if (!r.ok && r.status >= 500) throw new Error('сервер недоступен');
+  }
+  if (!r || !r.ok) {
+    r = await fetch(`${SYNC.url}/auth/v1/signup`, { method: 'POST', headers, body: '{"data":{}}' });
+    if (!r.ok) throw new Error(r.status === 422 ? 'анонимный вход выключен' : `вход: ${r.status}`);
+  }
+  const j = await r.json();
+  st = setSyncState({
+    access: j.access_token, refresh: j.refresh_token,
+    exp: j.expires_at || now + (j.expires_in || 3600), uid: j.user ? j.user.id : st.uid,
+  });
+  return st.access;
+}
+
+function syncSoon() {
+  syncDirty = true;
+  if (syncTimer) return;
+  const wait = Math.max(0, SYNC.every - (Date.now() - (syncState().at || 0)));
+  syncTimer = setTimeout(() => { syncTimer = null; syncPush(); }, wait);
+}
+
+async function syncPush(leaving) {
+  if (!syncDirty || syncBusy || !navigator.onLine) return false;
+  syncBusy = true;
+  try {
+    const token = await syncToken();
+    const body = JSON.stringify({
+      app: L.key, schema_version: PROGRESS_VERSION, data: S.prog,
+      client_saved_at: new Date().toISOString(), client_day: today(),
+    });
+    const r = await fetch(`${SYNC.url}/rest/v1/progress?on_conflict=user_id,app`, {
+      method: 'POST',
+      // при сворачивании страница может закрыться посреди запроса: keepalive
+      // доводит его до конца, но берёт только тела до 64 КБ
+      keepalive: !!leaving && body.length < 60000,
+      headers: {
+        apikey: SYNC.key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body,
+    });
+    if (!r.ok) throw new Error(`сохранение: ${r.status}`);
+    syncDirty = false;
+    setSyncState({ at: Date.now(), err: null });
+    return true;
+  } catch (e) {
+    setSyncState({ err: String(e && e.message || e) });
+    return false;
+  } finally {
+    syncBusy = false;
+  }
+}
+
+function bindSync() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') syncPush(true);
+  });
+  window.addEventListener('online', () => { if (syncDirty) syncPush(); });
+  syncSoon();                                   // при запуске — свежая копия того, что есть
+}
+
+function syncStatusText() {
+  const st = syncState();
+  if (st.err && (!st.at || Date.now() - st.at > SYNC.every * 2)) return `не удалось: ${st.err}`;
+  if (!st.at) return 'ещё не сохранялась';
+  const m = Math.floor((Date.now() - st.at) / 60e3);
+  if (m < 1) return 'сохранена только что';
+  if (m < 60) return `сохранена ${plural(m, 'минуту', 'минуты', 'минут')} назад`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `сохранена ${plural(h, 'час', 'часа', 'часов')} назад`;
+  return `сохранена ${new Date(st.at).toLocaleDateString('ru-RU')}`;
+}
 
 /* ---------------- резервная копия прогресса ----------------
    Прогресс живёт в localStorage, а его iOS стирает вместе с веб-приложением,
@@ -3219,6 +3349,7 @@ async function boot() {
   bindEdgeBack();
   bindStatusBarTap();
   bindDataUpdates();
+  bindSync();
   document.addEventListener('keydown', (e) => {
     if (e.target.matches('input,select,textarea')) return;
     if (S.alphaQuiz && S.alphaKeys) S.alphaKeys(e);
