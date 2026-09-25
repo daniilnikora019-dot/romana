@@ -295,24 +295,23 @@ function bindSubHead(box) {
 
 /* ---------------- меню ---------------- */
 ROUTES.menu = function () {
-  const c = counts();
+  // Подписи остались только там, где они показывают состояние (автоозвучка, тема):
+  // пересказ названия пункта ничего не добавлял.
   const box = el(`<div>
-    <div class="page-head"><div><h1>Меню</h1>
-      <p class="sub">Настройки, алфавит и подробная статистика</p></div></div>
+    <div class="page-head"><div><h1>Меню</h1></div></div>
 
     <div class="menu-card">
       <button class="menu-row" data-go="settings">
         <span class="mi">${ico('sliders')}</span>
-        <span class="mt"><b>Настройки</b><i>Норма, режимы, голос и скорость речи, тема</i></span>
+        <span class="mt"><b>Настройки</b></span>
         <span class="ma">›</span></button>
       <button class="menu-row" data-go="stats">
         <span class="mi accent">${ico('chart')}</span>
-        <span class="mt"><b>Подробная статистика</b>
-          <i>Выучено ${c.mastered} · в процессе ${c.learning} · известно ${c.known}</i></span>
+        <span class="mt"><b>Подробная статистика</b></span>
         <span class="ma">›</span></button>
       <button class="menu-row" data-go="alphabet">
         <span class="mi gold">${ico('abc')}</span>
-        <span class="mt"><b>Алфавит</b><i>${L.alphabet.menu}</i></span>
+        <span class="mt"><b>Алфавит</b></span>
         <span class="ma">›</span></button>
     </div>
 
@@ -324,7 +323,7 @@ ROUTES.menu = function () {
         <span class="ma">${S.prog.set.autoplay ? 'вкл' : 'выкл'}</span></button>
       <button class="menu-row" data-go="about">
         <span class="mi">ℹ️</span>
-        <span class="mt"><b>Источники и лицензии</b><i>Откуда словарь, частотность и озвучка</i></span>
+        <span class="mt"><b>Источники и лицензии</b></span>
         <span class="ma">›</span></button>
       <button class="menu-row" id="m-theme">
         <span class="mi">${ico(document.documentElement.dataset.theme === 'dark' ? 'moon' : 'sun')}</span>
