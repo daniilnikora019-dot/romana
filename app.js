@@ -36,8 +36,8 @@ function defaultProgress() {
   };
 }
 
-/* Слова, взятые в изучение, но ни разу не названные верно в закреплении.
-   Хранится в прогрессе, а не в сессии: раньше выход из закрепления на полпути
+/* Слова, взятые в изучение, но ни разу не названные верно в первом повторении.
+   Хранится в прогрессе, а не в сессии: раньше выход из первого повторения на полпути
    оставлял такие слова в пустоте — новыми они больше не предлагались, на
    повторение ещё не пришли, а сессия с ними терялась. */
 /* Норма — план на день, а не потолок: размер порции выбирается вручную и может
@@ -507,11 +507,12 @@ ROUTES.welcome = function () {
 ROUTES.home = function () {
   const c = counts(), t = dayRec(today());
   const goalNew = S.prog.set.newPerDay;
-  const unfinished = pendingDrill().length;         // взяли, но ещё не закрепили
-  /* В цель дня идут новые слова, впервые названные верно в закреплении, — то есть результат,
-     а не намерение: взять слово в работу ещё ничего не значит. Повторения в процент не входят,
-     их число диктует расписание, а не усердие; они показаны отдельной строкой. */
-  const donePct = goalNew ? Math.min(100, Math.round(t.drilled / goalNew * 100)) : 0;
+  const unfinished = pendingDrill().length;         // взяли, но ещё ни разу не ответили верно
+  /* У слова три статуса: изучается, выучено, уже знаю. Не знаешь слово — значит,
+     оно изучается, поэтому в цель дня идёт каждое новое слово, взятое в изучение.
+     Одними нажатиями «учить» день всё равно не засчитать: серия и день занятий
+     считаются только по ответам. */
+  const donePct = goalNew ? Math.min(100, Math.round(t.started / goalNew * 100)) : 0;
 
   // кружки текущей недели
   const mon = startOfWeek(new Date());
@@ -534,10 +535,10 @@ ROUTES.home = function () {
             <span class="ma">›</span></button>
           <button class="menu-row" data-act="learn">
             <span class="mi accent">${ico('spark')}</span>
-            <span class="mt"><b>${unfinished ? 'Закрепить начатое' : 'Учить новые слова'}</b>
+            <span class="mt"><b>${unfinished ? 'Продолжить начатое' : 'Учить новые слова'}</b>
               <i>${unfinished
-                ? `${plural(unfinished, 'слово ждёт', 'слова ждут', 'слов ждут')} закрепления`
-                : `Закреплено сегодня: ${goalText(t.drilled, goalNew)}`}</i></span>
+                ? `${plural(unfinished, 'новое слово ждёт', 'новых слова ждут', 'новых слов ждут')} первого повторения`
+                : `Взято сегодня: ${goalText(t.started, goalNew)}`}</i></span>
             <span class="ma">${unfinished || newLeftToday() || ''} ›</span></button>
           <button class="menu-row" data-act="review">
             <span class="mi gold">${ico('refresh')}</span>
@@ -575,14 +576,13 @@ ROUTES.home = function () {
                   stroke-dasharray="${(2 * Math.PI * 45).toFixed(1)}"
                   stroke-dashoffset="${(2 * Math.PI * 45 * (1 - donePct / 100)).toFixed(1)}"/>
               </svg>
-              <div class="val" title="В цель идёт новое слово, впервые названное верно в закреплении. Повторения показаны отдельной строкой">
+              <div class="val" title="В цель идёт каждое новое слово, взятое в изучение">
                 <b class="num">${donePct}%</b><span>цель дня</span></div>
             </div>
             <div class="goal-list">
-              <div class="goal-row"><span>Новых слов закреплено</span><b>${goalText(t.drilled, goalNew)}</b></div>
-              <div class="goal-row"><span>Выучено полностью сегодня</span><b>${t.new}</b></div>
-              <div class="goal-row"><span>Повторено сегодня</span>
-                <b>${t.rev}${c.due ? ` · ждёт ${c.due}` : ''}</b></div>
+              <div class="goal-row"><span>Взято в изучение</span><b>${goalText(t.started, goalNew)}</b></div>
+              <div class="goal-row"><span>Выучено сегодня</span><b>${t.new}</b></div>
+              <div class="goal-row"><span>Отмечено «уже знаю»</span><b>${t.known}</b></div>
             </div>
           </div>
           <div class="week">${week.map(d => `
@@ -597,11 +597,11 @@ ROUTES.home = function () {
     </div>
 
     <div class="grid stats-grid" style="margin:16px 0">
-      <div class="stat green"><div class="n num">${c.mastered}</div><div class="l">Выучено полностью</div>
+      <div class="stat green"><div class="n num">${c.mastered}</div><div class="l">Выучено</div>
         <div class="bar"><i style="width:${(c.mastered / c.total * 100).toFixed(1)}%"></i></div></div>
-      <div class="stat orange"><div class="n num">${c.learning}</div><div class="l">В процессе изучения</div>
+      <div class="stat orange"><div class="n num">${c.learning}</div><div class="l">Изучается</div>
         <div class="bar"><i style="width:${(c.learning / c.total * 100).toFixed(1)}%"></i></div></div>
-      <div class="stat purple"><div class="n num">${c.known}</div><div class="l">Уже знал(а)</div>
+      <div class="stat purple"><div class="n num">${c.known}</div><div class="l">Уже знаю</div>
         <div class="bar"><i style="width:${(c.known / c.total * 100).toFixed(1)}%"></i></div></div>
       <div class="stat blue"><div class="n">${c.learning + c.mastered + c.known}<small>/ ${c.total}</small></div>
         <div class="l">Охвачено из словаря</div>
@@ -610,12 +610,11 @@ ROUTES.home = function () {
 
     <div class="chart-card">
       <h3>Активность за 14 дней</h3>
-      <p class="cap">Закреплено новых, повторено уникальных, выучено полностью и отмечено «уже знаю» · листается вбок</p>
+      <p class="cap">Сколько слов за день перешло в каждый статус · листается вбок</p>
       <div class="chart-scroll"><canvas id="home-chart" height="158"></canvas></div>
       <div class="legend">
-        <span><i class="dot" style="background:var(--gold)"></i>закреплено новых</span>
-        <span><i class="dot" style="background:var(--accent)"></i>повторено</span>
-        <span><i class="dot" style="background:var(--green)"></i>выучено полностью</span>
+        <span><i class="dot" style="background:var(--gold)"></i>взято в изучение</span>
+        <span><i class="dot" style="background:var(--green)"></i>выучено</span>
         <span><i class="dot" style="background:var(--slate)"></i>уже знаю</span>
       </div>
     </div>
@@ -1002,7 +1001,7 @@ ROUTES.learn = function () {
     const left = newLeftToday();
     if (left <= 0 && !S.extraNew) {
       return emptyScreen(ico('target'), 'Дневная норма выполнена',
-        `Сегодня закреплено ${plural(dayRec(today()).drilled, 'новое слово', 'новых слова', 'новых слов')}. ` +
+        `Сегодня взято в изучение ${plural(dayRec(today()).started, 'новое слово', 'новых слова', 'новых слов')}. ` +
         'Можно повторить пройденное или продолжить сверх нормы.',
         'Повторять', () => go('review'),
         'Учить сверх нормы', () => { S.extraNew = true; S.batch = null; go('learn'); });
@@ -1030,12 +1029,12 @@ function batchPicker(available, left) {
   const suggested = Math.max(1, Math.min(left > 0 ? left : 10, available));
   const sizes = [...new Set([5, 10, 15, 20, suggested])]
     .filter(n => n >= 1 && n <= available).sort((a, b) => a - b);
-  const done = dayRec(today()).drilled;
+  const done = dayRec(today()).started;
   const box = el(`<div class="trainer" style="max-width:560px">
     ${subHead('Новая порция', 'home')}
     <div style="text-align:center;margin:6px 0 22px">
       <h1 style="margin:0 0 6px">Сколько слов возьмём?</h1>
-      <p class="sub">По дневной норме закреплено ${goalText(done, S.prog.set.newPerDay)} ·
+      <p class="sub">По дневной норме взято ${goalText(done, S.prog.set.newPerDay)} ·
         доступно ${plural(available, 'новое слово', 'новых слова', 'новых слов')}</p>
     </div>
     <div class="cats-grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
@@ -1162,23 +1161,18 @@ function learnDrill() {
   const mode = s.i % 2 === 0 ? 'ka2ru' : 'ru2ka';
   const left = s.pending.size;
   return exerciseChoice(w, mode, {
-    title: `Закрепление · осталось ${plural(left, 'слово', 'слова', 'слов')} · ` +
+    title: `Первое повторение · осталось ${plural(left, 'слово', 'слова', 'слов')} · ` +
            `${mode === 'ka2ru' ? 'выберите перевод' : L.ask.choice}`,
     progress: (s.drill.length - left) / s.drill.length,
     onDone: (ok, again) => {
       s.hist = s.hist || [];
       s.hist.push({ snap: snapshot(w), i: s.i, phase: 'drill' });
       answerGrade(w, ok, true);
-      // Слово идёт в зачёт дня, когда впервые названо верно здесь, в закреплении:
-      // смахнуть «учить» — ещё не результат. Взятые считаются отдельным счётчиком,
-      // по нему определяется размер порции. Отметка «не закреплено» снимается тут же,
-      // поэтому одно слово попадает в зачёт ровно один раз, даже если его счётчик
-      // верных ответов потом снова упадёт до нуля.
-      if (ok && (S.prog.pend || []).includes(w.id)) {
-        dayRec(today()).drilled++;
-        markPending(w.id, false);
-      }
-      // закрепление не заканчивается, пока каждое слово не будет названо верно
+      // Первый верный ответ снимает отметку «ждёт первого повторения»: слово больше
+      // не предлагается кнопкой «Продолжить начатое». Отдельным статусом или
+      // счётчиком это не считается — слово как было, так и остаётся «изучается».
+      if (ok && (S.prog.pend || []).includes(w.id)) markPending(w.id, false);
+      // первое повторение не заканчивается, пока каждое слово не будет названо верно
       if (ok) s.pending.delete(w.id); else s.drill.push(w);
       if (again && ok) { s.drill.push(w); s.pending.add(w.id); }
       s.i++; render();
@@ -1481,7 +1475,7 @@ ROUTES.browse = function () {
     ${trainerHead({ progress: (s.i % s.queue.length) / s.queue.length, title: `Просмотр · слово ${s.i + 1}` })}
     <div class="word-card">
       <div class="rep-label"><i class="${p.s === 'mastered' ? 'five' : p.s === 'learning' ? 'two' : 'new'}"></i>
-        ${p.s === 'mastered' ? 'выучено' : p.s === 'learning' ? 'в процессе' : p.s === 'known' ? 'уже знаю' : 'новое'}
+        ${p.s === 'mastered' ? 'выучено' : p.s === 'learning' ? 'изучается' : p.s === 'known' ? 'уже знаю' : 'новое'}
         <span class="cat">${catIcon(w.cats[0])} ${esc(catName(w.cats[0]))}</span></div>
       <div class="word-ka ka">${esc(w.ka)}</div>
       ${S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
@@ -2026,7 +2020,7 @@ ROUTES.cats = function () {
 function wordStatus(w) {
   const st = wp(w.id).s;
   return st === 'mastered' ? ['выучено', 'mastered']
-       : st === 'learning' ? ['в процессе', 'learning']
+       : st === 'learning' ? ['изучается', 'learning']
        : st === 'known' ? ['уже знаю', 'known'] : ['новое', 'new'];
 }
 
@@ -2067,8 +2061,14 @@ function bindWordRows(root) {
         const btn = ev.target.closest('[data-a]');
         if (!btn) return;
         const a = btn.dataset.a;
-        if (a === 'learn') { setWp(w.id, { s: 'learning', r: 0, d: Date.now(), lr: null, e: 0 }); toast('Добавлено в изучение'); }
-        else if (a === 'known') { setWp(w.id, { s: 'known', r: 0, d: 0, lr: today(), e: 0 }); toast('Отмечено как известное'); }
+        const was = wp(w.id).s;
+        if (a === 'learn') {
+          if (was !== 'learning') dayRec(today()).started++;
+          setWp(w.id, { s: 'learning', r: 0, d: Date.now(), lr: null, e: 0 }); toast('Добавлено в изучение');
+        } else if (a === 'known') {
+          if (was !== 'known') dayRec(today()).known++;
+          setWp(w.id, { s: 'known', r: 0, d: 0, lr: today(), e: 0 }); toast('Отмечено как известное');
+        }
         else { delete S.prog.w[w.id]; saveProgress(); toast('Прогресс слова сброшен'); }
         render();
       };
@@ -2416,7 +2416,7 @@ function lastDays(n) {
    Считает всю активность целиком — по всем категориям и уровням без исключения. */
 function statsBuckets(scale, count) {
   const buckets = [], now = new Date();
-  const push = (key, label, full) => buckets.push({ key, label, full, rev: 0, new: 0, known: 0, started: 0, drilled: 0 });
+  const push = (key, label, full) => buckets.push({ key, label, full, new: 0, known: 0, started: 0 });
   const dm = (d) => `${d.getDate()}.${String(d.getMonth() + 1).padStart(2, '0')}`;
   if (scale === 'week') {
     const s0 = startOfWeek(now);
@@ -2450,9 +2450,7 @@ function statsBuckets(scale, count) {
     else if (scale === 'year') key = date.slice(0, 4);
     const b = index.get(key);
     if (b) {
-      b.rev += rec.rev || 0; b.new += rec.new || 0; b.known += rec.known || 0; b.started += rec.started || 0;
-      // у дней до появления счётчика закреплённых берём взятые — иначе старая история обнулилась бы
-      b.drilled += rec.drilled === undefined ? (rec.started || 0) : rec.drilled;
+      b.new += rec.new || 0; b.known += rec.known || 0; b.started += rec.started || 0;
     }
   }
   return buckets;
@@ -2487,14 +2485,14 @@ function onBarColor(hex) {
 function drawActivity(cv, buckets) {
   if (!cv) return;
   const wrap = cv.parentElement;
-  const MIN_GROUP = 96;                    // ширина группы: четыре столбца и числа внутри них
+  const MIN_GROUP = 76;                    // ширина группы: три столбца и числа внутри них
   if (wrap && wrap.classList.contains('chart-scroll')) {
     const need = buckets.length * MIN_GROUP + 44;
     cv.style.width = Math.max(wrap.clientWidth, need) + 'px';
   }
   const { c, w, h } = prepCanvas(cv, 158);
   const pad = { l: 34, r: 10, t: 20, b: 22 };
-  const max = Math.max(4, ...buckets.map(d => Math.max(d.drilled, d.rev, d.new, d.known)));
+  const max = Math.max(4, ...buckets.map(d => Math.max(d.started, d.new, d.known)));
   const bw = (w - pad.l - pad.r) / buckets.length;
   const ih = h - pad.t - pad.b;
   c.strokeStyle = css('--line'); c.lineWidth = 1;
@@ -2510,7 +2508,7 @@ function drawActivity(cv, buckets) {
     // Серии с нулём не рисуются и не занимают место: иначе день с одной-двумя
     // непустыми серией выглядел как столбцы, разбросанные дырами.
     const gap = Math.min(bw * 0.22, 14);
-    const barW = Math.max(3, (bw - gap) / 4);      // толщина постоянна, сколько бы серий ни было
+    const barW = Math.max(3, (bw - gap) / 3);      // толщина постоянна, сколько бы серий ни было
     const draw = (val, color, off) => {
       const bh = ih * (val / max);
       c.fillStyle = color;
@@ -2544,10 +2542,9 @@ function drawActivity(cv, buckets) {
       }
       c.textAlign = 'start';
     };
-    // четыре серии: закреплено новых, повторено, выучено полностью, отмечено «уже знаю»
+    // три статуса слова: сколько за период взято в изучение, выучено и отмечено «уже знаю»
     const series = [
-      [d.drilled, css('--gold')],
-      [d.rev, css('--accent')],
+      [d.started, css('--gold')],
       [d.new, css('--green')],
       [d.known, css('--slate')],
     ].filter(([val]) => val > 0);
@@ -2621,7 +2618,6 @@ ROUTES.stats = function () {
   const [, scale, count, periodLabel] = SCALES[key];
   const buckets = statsBuckets(scale, key === 'all' ? monthsOfHistory() : count);
   const sum = (f) => buckets.reduce((s, b) => s + b[f], 0);
-  const activeDays = Object.values(S.prog.days || {}).filter(dayActive).length;
   // итоги под графиком — ровно за то, что на нём нарисовано; «за всё время» — отдельная шкала
   const span = key === 'all' ? 'всё время'
     : plural(count, ...{ day: ['день', 'дня', 'дней'], week: ['неделю', 'недели', 'недель'], month: ['месяц', 'месяца', 'месяцев'] }[scale]);
@@ -2659,7 +2655,7 @@ ROUTES.stats = function () {
   const barLegend = `<div class="bar-legend">
       <span><i style="background:var(--green)"></i>выучено</span>
       <span><i style="background:var(--gold)"></i>изучается</span>
-      <span><i style="background:var(--slate)"></i>уже известные</span></div>`;
+      <span><i style="background:var(--slate)"></i>уже знаю</span></div>`;
 
   const legendRow = (color, name, value) => `<div class="mrow">
       <span class="mtot num">${value}</span>
@@ -2676,26 +2672,23 @@ ROUTES.stats = function () {
     </div>
 
     <div class="grid stats-grid" style="margin-bottom:16px">
-      <div class="stat green"><div class="n num">${c.mastered}</div><div class="l">Полностью выучено</div></div>
-      <div class="stat orange"><div class="n num">${c.learning}</div><div class="l">Изучается сейчас</div></div>
-      <div class="stat purple"><div class="n num">${c.known}</div><div class="l">Уже известные</div></div>
+      <div class="stat green"><div class="n num">${c.mastered}</div><div class="l">Выучено</div></div>
+      <div class="stat orange"><div class="n num">${c.learning}</div><div class="l">Изучается</div></div>
+      <div class="stat purple"><div class="n num">${c.known}</div><div class="l">Уже знаю</div></div>
       <div class="stat blue"><div class="n num">${((c.mastered + c.known + c.learning) / c.total * 100).toFixed(1)}%</div>
         <div class="l">Охват словаря</div></div>
       <div class="stat"><div class="n num">${ico('fire')} ${streakNow()}</div><div class="l">Серия дней · рекорд ${Math.max(S.prog.best || 0, streakNow())}</div></div>
-      <div class="stat"><div class="n num">${activeDays ? (sum('rev') / Math.max(1, activeDays)).toFixed(1) : 0}</div>
-        <div class="l">Слов в активный день</div></div>
     </div>
 
     <div class="chart-card" style="margin-bottom:16px">
       <h3>Активность ${periodLabel}</h3>
-      <p class="cap">Все категории и уровни · одно слово считается один раз в сутки</p>
+      <p class="cap">Сколько слов перешло в каждый статус · все категории и уровни</p>
       <div class="chart-scroll"><canvas id="c-rev" height="164"></canvas></div>
       <div class="metrics">
         <div class="mhead">Итого за ${span}</div>
-        ${legendRow('var(--green)', 'Полностью выучено', sum('new'))}
-        ${legendRow('var(--accent)', 'Повторено', sum('rev'))}
-        ${legendRow('var(--gold)', 'Закреплено новых слов', sum('drilled'))}
-        ${legendRow('var(--slate)', 'Уже известные', sum('known'))}
+        ${legendRow('var(--gold)', 'Взято в изучение', sum('started'))}
+        ${legendRow('var(--green)', 'Выучено', sum('new'))}
+        ${legendRow('var(--slate)', 'Отмечено «уже знаю»', sum('known'))}
       </div>
     </div>
 
