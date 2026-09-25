@@ -725,6 +725,8 @@ canvas{display:block;width:100%}
 .set-sect{font-size:12px;color:var(--muted);font-weight:600;margin:20px 0 8px 2px}
 .set-sect:first-of-type{margin-top:16px}
 .set-group{background:var(--surface-2);border-radius:var(--r-md);padding:2px 14px}
+/* на странице настроек группы выглядят как карточки меню, а не как вкладыши окна */
+.settings-page .set-group{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg)}
 .set-group .set-row:last-child{border:none}
 .set-row input[type=number]{width:82px;text-align:center}
 .set-row input[type=range]{width:120px;accent-color:var(--accent)}

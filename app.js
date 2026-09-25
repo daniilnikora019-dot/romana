@@ -320,7 +320,7 @@ const TAB_OF = {
   home: 'home', learn: 'home', review: 'home', mixed: 'home', browse: 'home',
   cats: 'home', welcome: 'home', lessons: 'home', lesson: 'home',
   dict: 'dict', dictcat: 'dict',
-  menu: 'menu', alphabet: 'menu', stats: 'menu', about: 'menu',
+  menu: 'menu', settings: 'menu', alphabet: 'menu', stats: 'menu', about: 'menu',
 };
 function go(route) {
   S.route = route; S.session = null;
@@ -363,7 +363,7 @@ ROUTES.menu = function () {
       <p class="sub">Настройки, алфавит и подробная статистика</p></div></div>
 
     <div class="menu-card">
-      <button class="menu-row" data-act="settings">
+      <button class="menu-row" data-go="settings">
         <span class="mi">${ico('sliders')}</span>
         <span class="mt"><b>Настройки</b><i>Норма, режимы, голос и скорость речи, тема</i></span>
         <span class="ma">›</span></button>
@@ -399,7 +399,6 @@ ROUTES.menu = function () {
     </p>
   </div>`);
   $$('[data-go]', box).forEach(b => b.onclick = () => go(b.dataset.go));
-  box.querySelector('[data-act=settings]').onclick = openSettings;
   box.querySelector('#m-sound').onclick = () => {
     S.prog.set.autoplay = !S.prog.set.autoplay;
     saveProgress(); render();
@@ -2706,14 +2705,16 @@ ROUTES.stats = function () {
   return box;
 };
 
-/* ---------------- настройки ---------------- */
-function openSettings() {
+/* ---------------- настройки ----------------
+   Обычная страница меню, как статистика и алфавит, а не окно поверх экрана:
+   с той же шапкой «Назад» и тем же жестом возврата от левого края. */
+ROUTES.settings = function () {
   const st = S.prog.set;
   const sw = (on) => `<div class="switch ${on ? 'on' : ''}"><i></i></div>`;
   const row = (label, desc, control) => `<div class="set-row"><div><div class="lbl">${label}</div>
       <div class="desc">${desc}</div></div>${control}</div>`;
-  const bg = el(`<div class="modal-bg"><div class="modal">
-    <h2>Настройки</h2>
+  const bg = el(`<div class="settings-page">
+    ${subHead('Настройки', 'menu')}
 
     <div class="set-sect">Внешний вид</div>
     <div class="set-group">
@@ -2769,11 +2770,9 @@ function openSettings() {
       <span class="act"><button class="btn ghost sm" id="s-check">${ico('search')} Проверить звук</button>${hintBtn('check')}</span>
       <span class="act"><button class="btn ghost sm" id="s-reset" style="color:var(--clay)">Сбросить всё</button>${hintBtn('reset')}</span>
     </div>
-    <div style="display:flex;margin-top:18px">
-      <button class="btn primary" id="s-close" style="margin-left:auto">Готово</button>
-    </div>
-  </div></div>`);
+  </div>`);
 
+  bindSubHead(bg);
   bindHints(bg);
   $$('[data-sw]', bg).forEach(node => node.onclick = () => {
     const k = node.dataset.sw;
@@ -2815,10 +2814,8 @@ function openSettings() {
     }
     const out = $('#s-check-out', bg) || el('<pre id="s-check-out"></pre>');
     out.textContent = lines.join('\n');
-    $('.modal', bg).appendChild(out);
+    bg.appendChild(out);
   };
-  $('#s-close', bg).onclick = () => { bg.remove(); render(); };
-  bg.onclick = (e) => { if (e.target === bg) { bg.remove(); render(); } };
   $('#s-copy', bg).onclick = () => {
     // Safari отдаёт буфер обмена только тому вызову, что начался прямо в обработчике
     // нажатия, а сжатие асинхронное. Поэтому буферу передаётся обещание, а не готовый
@@ -2851,7 +2848,7 @@ function openSettings() {
       try {
         const p = await fromCode($('#s-code-in', w).value);
         applyRestored(p);
-        w.remove(); bg.remove(); render(); toast('Прогресс восстановлен');
+        w.remove(); render(); toast('Прогресс восстановлен');
       } catch (e) { toast('Код не распознан'); }
     };
     document.body.appendChild(w);
@@ -2872,7 +2869,7 @@ function openSettings() {
       fr.onload = () => {
         try {
           applyRestored(JSON.parse(fr.result));
-          bg.remove(); render(); toast('Прогресс загружен');
+          render(); toast('Прогресс загружен');
         } catch (e) { toast('Не удалось прочитать файл'); }
       };
       fr.readAsText(inp.files[0]);
@@ -2882,10 +2879,10 @@ function openSettings() {
   $('#s-reset', bg).onclick = () => {
     if (!confirm('Удалить весь прогресс изучения? Это действие необратимо.')) return;
     S.prog = defaultProgress(); S.session = null; dropSession();
-    saveProgress(); bg.remove(); render(); toast('Прогресс сброшен');
+    saveProgress(); render(); toast('Прогресс сброшен');
   };
-  document.body.appendChild(bg);
-}
+  return bg;
+};
 
 /* ---------------- резервная копия прогресса ----------------
    Прогресс живёт в localStorage, а его iOS стирает вместе с веб-приложением,
@@ -3046,7 +3043,7 @@ function bindStatusBarTap() {
    возвращаются на свои места.
 
    В тренировках жест выключен: там смахивание по карточке уже означает ответ. */
-const BACK_SAFE = ['home', 'dict', 'dictcat', 'menu', 'cats', 'lessons', 'alphabet', 'stats', 'about'];
+const BACK_SAFE = ['home', 'dict', 'dictcat', 'menu', 'settings', 'cats', 'lessons', 'alphabet', 'stats', 'about'];
 
 function bindEdgeBack() {
   const EDGE = 28, PART = 0.45, FLING = 0.6, FLING_MIN = 60, SLIP = 60, LAG = 0.3, DIM = 0.28;
