@@ -407,32 +407,6 @@ h2.sect + .menu-card{margin-bottom:18px}
 .empty .ico.spin .icn{animation:ic-spin 1.6s linear infinite}
 @keyframes ic-spin{to{transform:rotate(360deg)}}
 
-/* ---------- подсказки «i» ----------
-   Кнопка стоит вплотную к действию, но приглушена: она объясняет, а не зовёт
-   нажать. Записка всплывает поверх всего, поэтому у неё своя тень и подложка. */
-.data-acts{display:flex;gap:9px;margin-top:10px;flex-wrap:wrap}
-.data-acts .act{display:inline-flex;align-items:center;gap:4px}
-.hint-btn{
-  width:26px;height:26px;flex:none;border-radius:50%;display:grid;place-items:center;
-  color:var(--muted);transition:color .14s,background .14s;
-}
-.hint-btn .icn{width:17px;height:17px;vertical-align:0;stroke-width:1.6}
-.hint-btn[aria-expanded="true"]{color:var(--accent);background:var(--accent-soft)}
-.hint-pop{
-  position:fixed;z-index:80;max-width:min(300px,calc(100vw - 24px));
-  background:var(--surface);color:var(--text-2);border:1px solid var(--line);
-  border-radius:var(--r-md);box-shadow:var(--shadow-md);
-  padding:11px 13px;font-size:13px;line-height:1.5;text-align:left;
-}
-/* уголок в сторону кнопки: два квадрата, верхний закрывает линию рамки */
-.hint-pop::before,.hint-pop::after{
-  content:'';position:absolute;left:calc(var(--arrow) - 6px);width:11px;height:11px;
-  transform:rotate(45deg);background:var(--surface);border:1px solid var(--line);
-}
-.hint-pop::before{top:-6.5px;border-width:1px 0 0 1px}
-.hint-pop::after{display:none}
-.hint-pop.above::before{top:auto;bottom:-6.5px;border-width:0 1px 1px 0}
-
 /* полоса над вырезом: касание по ней поднимает страницу наверх */
 #to-top{
   position:fixed;top:0;left:0;right:0;z-index:60;
@@ -623,6 +597,29 @@ input[type=search],input[type=text],input[type=number],select{
 }
 input[type=search]:focus,select:focus,input[type=number]:focus{border-color:var(--accent)}
 input[type=search]{flex:1;min-width:210px}
+/* поиск и значок сортировки в одной строке */
+.search-row{display:flex;gap:8px;align-items:stretch;margin-bottom:16px}
+.search-row input[type=search]{flex:1;min-width:0;width:auto}
+.sort-wrap{position:relative;flex:none;display:flex}
+.sort-btn{
+  width:46px;display:grid;place-items:center;border-radius:var(--r-sm);
+  border:1px solid var(--line);background:var(--surface);color:var(--text-2);transition:border-color .13s,color .13s;
+}
+.sort-btn .icn{width:21px;height:21px;vertical-align:0}
+.sort-btn.on,.sort-btn[aria-expanded=true]{color:var(--accent);border-color:var(--accent)}
+.sort-menu{
+  position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:200px;padding:5px;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+  box-shadow:var(--shadow-md);animation:fade .15s ease;
+}
+.sort-menu[hidden]{display:none}
+.sort-menu button{
+  display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;border-radius:8px;
+  font-size:15px;text-align:left;color:var(--text);
+}
+.sort-menu button .icn{width:16px;height:16px;color:var(--accent);vertical-align:0}
+.sort-menu button[aria-checked=false] .icn{visibility:hidden}
+.sort-menu button[aria-checked=true]{font-weight:600}
 
 /* ---------- словарь ---------- */
 .cat-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
@@ -727,6 +724,13 @@ canvas{display:block;width:100%}
 .set-group{background:var(--surface-2);border-radius:var(--r-md);padding:2px 14px}
 /* на странице настроек группы выглядят как карточки меню, а не как вкладыши окна */
 .settings-page .set-group{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg)}
+.settings-page .menu-card{margin-top:10px}
+/* сброс — в самом низу, тихой ссылкой, а не кнопкой среди прочих */
+.danger-zone{margin:34px 0 6px;padding-top:18px;border-top:1px solid var(--line);text-align:center}
+.danger-link{color:var(--clay);font-size:14px;font-weight:600;padding:6px 10px}
+.danger-zone p{margin:4px auto 0;max-width:340px;font-size:12px;line-height:1.45;color:var(--muted)}
+.btn.danger{background:var(--clay);color:#fff}
+#s-reset-in{width:100%;margin-top:8px}
 .set-group .set-row:last-child{border:none}
 .set-row input[type=number]{width:82px;text-align:center}
 .set-row input[type=range]{width:120px;accent-color:var(--accent)}
@@ -794,6 +798,8 @@ canvas{display:block;width:100%}
   .menu-row:hover{background:var(--surface-2)}
   .speak:hover{background:var(--accent);color:#fff;transform:scale(1.05)}
   .opt:hover:not(:disabled):not(.done){border-color:var(--accent);background:var(--accent-soft)}
+  .sort-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .sort-menu button:hover{background:var(--surface-2)}
   .mode-card:hover{border-color:var(--accent);background:var(--accent-soft)}
   .opt-play:hover{background:var(--accent);color:#fff}
   .letters button:hover{background:var(--accent-soft);border-color:var(--accent)}

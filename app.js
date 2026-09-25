@@ -242,6 +242,7 @@ const ICONS = {
   down:    '<path d="M12 3.6v11.2M8 10.8l4 4 4-4"/><path d="M4.6 16.2v2.2a2 2 0 0 0 2 2h10.8a2 2 0 0 0 2-2v-2.2"/>',
   up:      '<path d="M12 14.8V3.6M8 7.6l4-4 4 4"/><path d="M4.6 16.2v2.2a2 2 0 0 0 2 2h10.8a2 2 0 0 0 2-2v-2.2"/>',
   search:  '<circle cx="10.8" cy="10.8" r="6.4"/><path d="M15.6 15.6l4.8 4.8"/>',
+  sort:    '<path d="M4 6.5h10M4 12h7M4 17.5h4"/><path d="M18 5.5v13M14.8 15.3l3.2 3.2 3.2-3.2"/>',
   warn:    '<path d="M12 3.6 21 19.6H3z"/><path d="M12 9.8v4.2M12 17h.01"/>',
   clock:   '<circle cx="12" cy="12" r="8.6"/><path d="M12 6.8V12l3.4 2"/>',
   info:    '<circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5M12 7.9h.01"/>',
@@ -249,69 +250,6 @@ const ICONS = {
 /* значок вставляется в разметку строкой; размер задаётся из CSS кеглем места,
    куда он попал, поэтому один и тот же значок годится и для кнопки, и для строки */
 const ico = (n, cls) => `<svg class="icn${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
-
-/* ---------------- подсказки «i» ----------------
-   Кнопка рядом с действием, по нажатию — всплывающая записка. Так объяснение
-   не занимает места, пока его не спросили, а спросить можно не уходя с экрана.
-   Записка закрывается повторным нажатием, нажатием мимо, Esc и прокруткой:
-   на телефоне промахнуться мимо мелкой кнопки легко, и залипшая подсказка
-   раздражала бы сильнее, чем её отсутствие. */
-const HINTS = {
-  copy: `Складывает весь прогресс в текстовый код. Скопируйте его и сохраните где угодно —
-    в заметках, письме самому себе, переписке. Из этого кода прогресс потом восстанавливается,
-    в том числе на другом устройстве.`,
-  paste: `Вставьте сюда код, скопированный раньше, — прогресс станет таким, каким был в момент
-    копирования. Нынешний при этом пропадёт, поэтому сначала скопируйте его.`,
-  export: `То же, что код, только файлом. В приложении, запущенном с экрана «Домой», iOS не всегда
-    разрешает сохранять файлы — если не получилось, пользуйтесь кодом.`,
-  import: `Загружает прогресс из ранее сохранённого файла. Нынешний прогресс будет заменён.`,
-  check: `Проверяет, скачивается ли озвучка и играет ли звук. Пригодится, если слова молчат:
-    покажет, дело в файлах приложения или в самом устройстве.`,
-  reset: `Стирает всё: выученные слова, серию дней, настройки и выбранные категории.
-    Отменить нельзя — сначала сохраните копию.`,
-};
-const hintBtn = (n) => `<button class="hint-btn" data-hint="${n}" aria-label="Зачем это нужно"
-  aria-expanded="false">${ico('info')}</button>`;
-
-function bindHints(root) {
-  let pop = null, cur = null;
-  const close = () => {
-    if (!pop) return;
-    cur.setAttribute('aria-expanded', 'false');
-    pop.remove(); pop = null; cur = null;
-    document.removeEventListener('pointerdown', outside, true);
-    document.removeEventListener('keydown', onEsc);
-    window.removeEventListener('scroll', close, true);
-    window.removeEventListener('resize', close);
-  };
-  const onEsc = (e) => { if (e.key === 'Escape') close(); };
-  const outside = (e) => { if (pop && !pop.contains(e.target) && e.target !== cur && !cur.contains(e.target)) close(); };
-  const open = (btn) => {
-    close();
-    cur = btn;
-    btn.setAttribute('aria-expanded', 'true');
-    pop = el(`<div class="hint-pop" role="tooltip">${esc(HINTS[btn.dataset.hint] || '').replace(/\s+/g, ' ')}</div>`);
-    document.body.appendChild(pop);
-    const r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
-    const left = Math.max(12, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 12));
-    // снизу, если помещается; иначе сверху — иначе записка уехала бы за край экрана
-    const below = r.bottom + 10 + h <= window.innerHeight - 12;
-    pop.style.left = `${left}px`;
-    pop.style.top = `${below ? r.bottom + 10 : Math.max(12, r.top - h - 10)}px`;
-    pop.style.setProperty('--arrow', `${r.left + r.width / 2 - left}px`);
-    pop.classList.toggle('above', !below);
-    setTimeout(() => {
-      document.addEventListener('pointerdown', outside, true);
-      document.addEventListener('keydown', onEsc);
-      window.addEventListener('scroll', close, true);
-      window.addEventListener('resize', close);
-    }, 0);
-  };
-  $$('[data-hint]', root).forEach(b => b.onclick = (e) => {
-    e.stopPropagation();
-    (pop && cur === b) ? close() : open(b);
-  });
-}
 
 /* ---------------- роутер ---------------- */
 const ROUTES = {};
@@ -2142,6 +2080,9 @@ ROUTES.dict = function () {
 };
 
 /* ---------------- словарь: слова одной категории ---------------- */
+const DICT_ORDERS = [
+  ['default', 'По умолчанию'], ['alpha', 'По алфавиту'], ['ru', 'По переводу'], ['level', 'По уровню'],
+];
 ROUTES.dictcat = function () {
   const cat = S.cats.find(c => c.id === S.dictCat);
   if (!cat) { go('dict'); return el('<div></div>'); }
@@ -2165,18 +2106,18 @@ ROUTES.dictcat = function () {
     ${subHead(cat.name, 'dict', catIcon(cat.id))}
     <p class="sub" style="margin-bottom:14px">
       ${plural(words.length, 'слово', 'слова', 'слов')} ·
-      выучено ${counts.mastered} · в процессе ${counts.learning} · знаю ${counts.known}</p>
-    <div class="toolbar">
+      выучено ${counts.mastered} · изучается ${counts.learning} · уже знаю ${counts.known}</p>
+    <div class="search-row">
       <input type="search" id="cat-q" placeholder="Искать в теме…" value="${esc(S.dictCatQ || '')}">
+      <div class="sort-wrap">
+        <button class="sort-btn ${order !== 'default' ? 'on' : ''}" id="cat-sort" title="Сортировка"
+          aria-label="Сортировка" aria-haspopup="menu" aria-expanded="false">${ico('sort')}</button>
+        <div class="sort-menu" role="menu" hidden>${DICT_ORDERS.map(([k, name]) => `
+          <button role="menuitemradio" aria-checked="${order === k}" data-order="${k}">${ico('check')}<span>${name}</span></button>`).join('')}
+        </div>
+      </div>
     </div>
     ${q ? `<p class="sub" style="margin:-4px 2px 10px">${shown.length ? `Найдено ${plural(shown.length, 'слово', 'слова', 'слов')}` : 'Ничего не нашлось'}</p>` : ''}
-    <div class="toolbar">
-      <span class="lbl">Порядок:</span>
-      <button class="chip sm ${order === 'default' ? 'on' : ''}" data-order="default">по умолчанию</button>
-      <button class="chip sm ${order === 'alpha' ? 'on' : ''}" data-order="alpha">по алфавиту</button>
-      <button class="chip sm ${order === 'ru' ? 'on' : ''}" data-order="ru">по переводу</button>
-      <button class="chip sm ${order === 'level' ? 'on' : ''}" data-order="level">по уровню</button>
-    </div>
     <div class="wlist">${shown.slice(0, limit).map(wordRowHTML).join('')}</div>
     ${shown.length > limit ? `<button class="btn ghost load-more">Показать ещё (${shown.length - limit})</button>` : ''}
     <div class="cat-foot">
@@ -2185,7 +2126,33 @@ ROUTES.dictcat = function () {
   </div>`);
   bindSubHead(box);
   bindWordRows(box);
-  $$('[data-order]', box).forEach(b => b.onclick = () => { S.dictOrder = b.dataset.order; render(); });
+  // Сортировка — значком рядом с поиском и выпадающим списком, как в большинстве
+  // приложений. Касание мимо списка только закрывает его и дальше не проходит:
+  // иначе тот же тап заодно раскрывал бы слово под списком.
+  const sortBtn = $('#cat-sort', box), sortMenu = $('.sort-menu', box);
+  const outside = (e) => {
+    if (!sortMenu.isConnected) return closeSort();   // экран уже сменился — клик не трогаем
+    if (e.target.closest('.sort-wrap')) return;
+    e.stopPropagation(); e.preventDefault();
+    closeSort();
+  };
+  const onKey = (e) => { if (e.key === 'Escape') closeSort(); };
+  const closeSort = () => {
+    sortMenu.hidden = true;
+    sortBtn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', outside, true);
+    document.removeEventListener('keydown', onKey);
+  };
+  sortBtn.onclick = () => {
+    if (!sortMenu.hidden) return closeSort();
+    sortMenu.hidden = false;
+    sortBtn.setAttribute('aria-expanded', 'true');
+    setTimeout(() => {                               // не ловим тот же клик, что открыл список
+      document.addEventListener('click', outside, true);
+      document.addEventListener('keydown', onKey);
+    });
+  };
+  $$('[data-order]', box).forEach(b => b.onclick = () => { closeSort(); S.dictOrder = b.dataset.order; render(); });
   // перерисовываем не сразу: иначе поле теряет ввод на каждом символе
   const catQ = $('#cat-q', box);
   let qTimer = null;
@@ -2722,7 +2689,6 @@ ROUTES.settings = function () {
         <option value="system" ${themePref() === 'system' ? 'selected' : ''}>Как в системе</option>
         <option value="dark" ${themePref() === 'dark' ? 'selected' : ''}>Тёмная</option>
         <option value="light" ${themePref() === 'light' ? 'selected' : ''}>Светлая</option></select>`)}
-      ${row('Показывать транслитерацию', L.translitNote, `<span data-sw="translit">${sw(st.translit)}</span>`)}
     </div>
 
     <div class="set-sect">Изучение слов</div>
@@ -2757,23 +2723,35 @@ ROUTES.settings = function () {
         `<span data-sw="autoplay">${sw(st.autoplay)}</span>`)}
       ${row('Скорость речи', '<span id="s-speed-val">' + (st.speed || 1).toFixed(1) + '</span>×',
         `<input type="range" id="s-speed" min="0.5" max="1.5" step="0.1" value="${st.speed || 1}">`)}
+      ${row('Показывать транслитерацию', L.translitNote, `<span data-sw="translit">${sw(st.translit)}</span>`)}
+      ${row('Проверить звук', 'Если слова молчат: покажет, дело в файлах приложения или в устройстве',
+        `<button class="btn ghost sm" id="s-check">Проверить</button>`)}
     </div>
+    <div id="s-check-slot"></div>
 
-    <div class="set-sect">Данные</div>
+    <div class="set-sect">Резервная копия</div>
     <p class="set-note">Прогресс хранится только на этом устройстве. Если удалить значок с экрана
       «Домой», iOS сотрёт его вместе с приложением — поэтому время от времени сохраняйте копию.</p>
-    <div class="data-acts">
-      <span class="act"><button class="btn ghost sm" id="s-copy">${ico('clip')} Скопировать код</button>${hintBtn('copy')}</span>
-      <span class="act"><button class="btn ghost sm" id="s-paste">${ico('down')} Восстановить из кода</button>${hintBtn('paste')}</span>
-      <span class="act"><button class="btn ghost sm" id="s-export">${ico('down')} Файлом</button>${hintBtn('export')}</span>
-      <span class="act"><button class="btn ghost sm" id="s-import">${ico('up')} Из файла</button>${hintBtn('import')}</span>
-      <span class="act"><button class="btn ghost sm" id="s-check">${ico('search')} Проверить звук</button>${hintBtn('check')}</span>
-      <span class="act"><button class="btn ghost sm" id="s-reset" style="color:var(--clay)">Сбросить всё</button>${hintBtn('reset')}</span>
+    <div class="menu-card">
+      <button class="menu-row" id="s-copy"><span class="mi">${ico('clip')}</span>
+        <span class="mt"><b>Скопировать код</b><i>Весь прогресс текстом — сохраните его в Заметках или письме себе</i></span></button>
+      <button class="menu-row" id="s-paste"><span class="mi">${ico('again')}</span>
+        <span class="mt"><b>Восстановить из кода</b><i>Прогресс станет таким, каким был при копировании; нынешний заменится</i></span></button>
+      <button class="menu-row" id="s-export"><span class="mi">${ico('down')}</span>
+        <span class="mt"><b>Сохранить файлом</b><i>То же, что код. С экрана «Домой» iOS не всегда даёт сохранить файл</i></span></button>
+      <button class="menu-row" id="s-import"><span class="mi">${ico('up')}</span>
+        <span class="mt"><b>Загрузить из файла</b><i>Прогресс из сохранённого файла; нынешний заменится</i></span></button>
+    </div>
+
+    <!-- Сброс — последним и отдельно от всего: случайно до него не долистать
+         и не нажать вместо соседней кнопки. Подтверждается словом, а не одним касанием. -->
+    <div class="danger-zone">
+      <button class="danger-link" id="s-reset">Сбросить весь прогресс</button>
+      <p>Удалит статусы всех слов, статистику, серию дней и настройки на этом устройстве</p>
     </div>
   </div>`);
 
   bindSubHead(bg);
-  bindHints(bg);
   $$('[data-sw]', bg).forEach(node => node.onclick = () => {
     const k = node.dataset.sw;
     const tri = (k === 'refresh');
@@ -2814,7 +2792,7 @@ ROUTES.settings = function () {
     }
     const out = $('#s-check-out', bg) || el('<pre id="s-check-out"></pre>');
     out.textContent = lines.join('\n');
-    bg.appendChild(out);
+    $('#s-check-slot', bg).appendChild(out);
   };
   $('#s-copy', bg).onclick = () => {
     // Safari отдаёт буфер обмена только тому вызову, что начался прямо в обработчике
@@ -2876,10 +2854,30 @@ ROUTES.settings = function () {
     };
     inp.click();
   };
+  const RESET_WORD = 'сбросить';
   $('#s-reset', bg).onclick = () => {
-    if (!confirm('Удалить весь прогресс изучения? Это действие необратимо.')) return;
-    S.prog = defaultProgress(); S.session = null; dropSession();
-    saveProgress(); render(); toast('Прогресс сброшен');
+    const w = el(`<div class="modal-bg"><div class="modal">
+      <h2>Сбросить весь прогресс?</h2>
+      <p class="set-note">Пропадут статусы всех слов, статистика, серия дней и настройки. Вернуть их
+        можно только из сохранённого кода или файла — если свежей копии нет, сначала сделайте её.</p>
+      <p class="set-note" style="margin-top:12px">Чтобы подтвердить, напишите: <b>${RESET_WORD}</b></p>
+      <input type="text" id="s-reset-in" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div style="display:flex;gap:9px;margin-top:14px">
+        <button class="btn ghost sm" id="s-reset-cancel">Отмена</button>
+        <button class="btn sm danger" id="s-reset-ok" style="margin-left:auto" disabled>Сбросить</button>
+      </div>
+    </div></div>`);
+    const inp = $('#s-reset-in', w), ok = $('#s-reset-ok', w);
+    inp.oninput = () => { ok.disabled = inp.value.trim().toLowerCase() !== RESET_WORD; };
+    $('#s-reset-cancel', w).onclick = () => w.remove();
+    w.onclick = (e) => { if (e.target === w) w.remove(); };
+    ok.onclick = () => {
+      if (ok.disabled) return;
+      S.prog = defaultProgress(); S.session = null; dropSession();
+      saveProgress(); w.remove(); render(); toast('Прогресс сброшен');
+    };
+    document.body.appendChild(w);
+    inp.focus();
   };
   return bg;
 };
