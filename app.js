@@ -30,7 +30,7 @@ function defaultProgress() {
       levels: ['A1', 'A2', 'B1'],
       voice: 'f', autoplay: true, translit: true, refresh: true,
       speed: 1, invertSwipe: false, reviewScope: 'selected', masterReps: 5,
-      newPerDay: 12, reviewPerDay: 60,
+      newPerDay: 12,
       reviewMode: 'choose',        // choose — выбираешь способ сам; recall / choice / mix — фиксированные
     },
   };
@@ -1187,7 +1187,9 @@ ROUTES.review = function () {
   }
   if (!S.session) {
     dropSession();
-    const q = dueQueue().slice(0, S.prog.set.reviewPerDay);
+    // берём всё, что пора повторить: ограничивать заход смысла нет —
+    // выйти можно в любой момент, прерванное занятие продолжится с того же места
+    const q = dueQueue();
     if (!q.length) {
       const c = counts();
       const nextDue = S.words.map(w => wp(w.id)).filter(p => p.s === 'learning' && p.d > Date.now())
@@ -1252,7 +1254,7 @@ ROUTES.mixed = function () {
   if (!S.session || S.session.kind !== 'mixed') {
     const left = S.extraNew ? st.newPerDay : newLeftToday();
     const fresh = newQueue().slice(0, Math.max(0, Math.min(left, st.newPerDay)));
-    const due = dueQueue().slice(0, st.reviewPerDay);
+    const due = dueQueue();
     if (!fresh.length && !due.length) {
       return emptyScreen(ico('leaf'), 'На сегодня всё',
         'Новых слов по норме больше нет, и повторять пока нечего. Возвращайтесь позже — или добавьте категории.',
@@ -2726,8 +2728,6 @@ function openSettings() {
     <div class="set-group">
       ${row('Новых слов в день', 'Дневная норма: столько слов даётся в порциях',
         `<input type="number" id="s-new" min="1" max="200" value="${st.newPerDay}">`)}
-      ${row('Повторений за сессию', 'Ограничение одной сессии повторения',
-        `<input type="number" id="s-rev" min="5" max="500" value="${st.reviewPerDay}">`)}
       ${row('Сколько верных ответов до «выучено»', 'Столько раз нужно ответить верно, чтобы слово считалось выученным',
         `<select id="s-mreps">${[3, 5, 7, 10].map(n =>
           `<option value="${n}" ${masterReps() === n ? 'selected' : ''}>${n}</option>`).join('')}</select>`)}
@@ -2793,7 +2793,6 @@ function openSettings() {
     st.newPerDay = Math.max(1, Math.min(200, +e.target.value || 12));
     S.extraNew = false; S.session = null; saveProgress();
   };
-  $('#s-rev', bg).onchange = (e) => { st.reviewPerDay = Math.max(5, +e.target.value || 60); saveProgress(); };
   const speed = $('#s-speed', bg);
   speed.oninput = (e) => { st.speed = +e.target.value; $('#s-speed-val', bg).textContent = st.speed.toFixed(1); };
   speed.onchange = () => { saveProgress(); speak(L.sample); };
