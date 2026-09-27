@@ -12,7 +12,7 @@ app.js, style.css и sw.js переносятся побайтово, без е�
 import hashlib, os, re, shutil, sys
 
 RO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KA = os.path.expanduser('~/Library/Application Support/kartuli')
+KA = os.path.expanduser('~/Developer/apps/kartuli')
 SHARED = ['app.js', 'style.css', 'sw.js']
 
 # в общем коде не должно остаться ничего, привязанного к конкретному языку

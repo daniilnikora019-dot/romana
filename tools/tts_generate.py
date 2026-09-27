@@ -3,7 +3,7 @@
 import asyncio, hashlib, json, os, sys, time
 import edge_tts
 
-BASE = os.path.expanduser('~/Library/Application Support/romana')
+BASE = os.path.expanduser('~/Developer/apps/romana')
 VOICES = {'f': 'ro-RO-AlinaNeural', 'm': 'ro-RO-EmilNeural'}
 CONCURRENCY = 10
 
