@@ -3303,7 +3303,9 @@ const BACK_SAFE = ['home', 'dict', 'dictcat', 'menu', 'settings', 'cats', 'gramm
 
 function bindEdgeBack() {
   const EDGE = 28, PART = 0.45, FLING = 0.6, FLING_MIN = 60, SLIP = 60, LAG = 0.3, DIM = 0.28;
-  let x0 = 0, y0 = 0, t0 = 0, dx = 0, live = false, under = null, link = null;
+  // START — на сколько пикселей палец должен уйти вправо, чтобы это был жест, а не касание
+  const START = 10;
+  let x0 = 0, y0 = 0, t0 = 0, dx = 0, armed = false, live = false, under = null, link = null;
   const main = () => $('#main');
   const busy = () => S.session || S.alphaQuiz || S.quiz;
 
@@ -3329,28 +3331,38 @@ function bindEdgeBack() {
     if (under) { under.remove(); under = null; }
   };
 
+  /* Касание у края только «взводит» жест, экран при этом не трогаем. Раньше
+     нижний экран рисовался и верхний сдвигался уже на касании — а у края стоит
+     кнопка «Назад»: нажатие на её левую часть тормозило, и iPhone порой вовсе
+     не засчитывал его, потому что под пальцем в этот момент перестраивалась
+     страница. Теперь жест начинается, только когда палец действительно повёл вправо. */
   document.addEventListener('touchstart', (e) => {
-    live = false;
+    armed = live = false;
     if (e.touches.length !== 1 || busy()) return;
     const t = e.touches[0];
     if (t.clientX > EDGE) return;
     link = $('.modal-bg') || $('#main .back-link');
     if (!link) return;
-    x0 = t.clientX; y0 = t.clientY; t0 = Date.now(); dx = 0; live = true;
-    under = link.classList.contains('modal-bg') ? null : showUnder(link.dataset.back);
-    place(0);
+    x0 = t.clientX; y0 = t.clientY; t0 = Date.now(); dx = 0; armed = true;
   }, { passive: true });
 
   document.addEventListener('touchmove', (e) => {
-    if (!live) return;
+    if (!armed && !live) return;
     const t = e.touches[0];
     dx = t.clientX - x0;
+    if (armed) {
+      if (Math.abs(t.clientY - y0) > SLIP) { armed = false; return; }
+      if (dx < START) return;
+      armed = false; live = true;
+      under = link.classList.contains('modal-bg') ? null : showUnder(link.dataset.back);
+    }
     // палец повело вертикально — это прокрутка, а не возврат
     if (Math.abs(t.clientY - y0) > SLIP) { live = false; clear(); return; }
     if (dx >= 0) place(Math.min(1, dx / window.innerWidth));
   }, { passive: true });
 
   document.addEventListener('touchend', () => {
+    armed = false;
     if (!live) return;
     live = false;
     const m = main(), w = window.innerWidth;
@@ -3375,6 +3387,13 @@ function bindEdgeBack() {
       clear();
       if (link.classList.contains('modal-bg')) link.remove(); else link.click();
     }, 220);
+  }, { passive: true });
+
+  // система отобрала касание (звонок, уведомление) — жест отменяется, экран на место
+  document.addEventListener('touchcancel', () => {
+    armed = false;
+    if (!live) return;
+    live = false; dx = 0; clear();
   }, { passive: true });
 }
 
