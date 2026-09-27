@@ -12,7 +12,7 @@ const masterReps = () => (S.prog && S.prog.set.masterReps) || MASTER_REPS_DEFAUL
 
 const S = {
   words: [], byId: new Map(), cats: [], alphabet: [], audio: {},
-  prog: null, route: 'home', session: null, audioEl: null, lessons: null,
+  prog: null, route: 'home', session: null, audioEl: null, grammar: [], topic: 0,
 };
 
 /* ---------------- прогресс ---------------- */
@@ -263,7 +263,7 @@ const ROUTES = {};
 /* нижняя панель: три раздела, остальные экраны — вложенные в них */
 const TAB_OF = {
   home: 'home', learn: 'home', review: 'home', mixed: 'home', browse: 'home',
-  cats: 'home', welcome: 'home', lessons: 'home', lesson: 'home',
+  cats: 'home', welcome: 'home', grammar: 'home', lessons: 'home', lesson: 'home',
   dict: 'dict', dictcat: 'dict',
   menu: 'menu', settings: 'menu', alphabet: 'menu', stats: 'menu', about: 'menu',
 };
@@ -494,10 +494,10 @@ ROUTES.home = function () {
             <span class="mt"><b>Смешанный режим</b>
               <i>Новые слова и повторение вперемешку</i></span>
             <span class="ma">›</span></button>
-          ${S.lessons ? `<button class="menu-row" data-go="lessons">
+          ${S.grammar.length ? `<button class="menu-row" data-go="grammar">
             <span class="mi slate">${ico('book')}</span>
-            <span class="mt"><b>${esc(S.lessons.title)}</b>
-              <i>Грамматика с примерами · пройдено ${lessonsDone()} из ${S.lessons.lessons.length} уроков</i></span>
+            <span class="mt"><b>Грамматика</b>
+              <i>Пройдено ${S.grammar.reduce((n, t) => n + lessonsDone(t), 0)} из ${S.grammar.reduce((n, t) => n + t.lessons.length, 0)} уроков</i></span>
             <span class="ma">›</span></button>` : ''}
         </div>
 
@@ -1352,8 +1352,10 @@ ROUTES.mixed = function () {
 };
 
 /* ---------------- раздел грамматики ----------------
-   Уроки лежат в данных (L.lessons), а не в коде: общий код не знает, о каком
-   языке они и сколько их. Порядок вопросов и вариантов задан при сборке файла,
+   Грамматика — список тем (L.grammar), у каждой свой файл с уроками. Уроки лежат
+   в данных, а не в коде: общий код не знает, о каком языке они и сколько их.
+   Тема появляется в списке, только когда её уроки готовы: пустые пункты «скоро»
+   человеку ничего не дают. Порядок вопросов и вариантов задан при сборке файла,
    поэтому урок выглядит одинаково при каждом открытии — это его свойство,
    а не случайность: к вопросу можно вернуться и увидеть тот же вопрос.
    Прогресс живёт в общем объекте прогресса, значит попадает и в резервную копию. */
@@ -1361,14 +1363,33 @@ const lessonProg = (id) => S.prog.les[id] || { read: 0, best: 0, tries: 0 };
 const lessonDone = (id) => lessonProg(id).best >= LESSON_PASS;
 const LESSON_PASS = 8;                       // сколько верных из десяти считается сдачей
 
-function lessonsDone() {
-  return (S.lessons ? S.lessons.lessons : []).filter(l => lessonDone(l.id)).length;
+function lessonsDone(topic) {
+  return (topic ? topic.lessons : []).filter(l => lessonDone(l.id)).length;
 }
+const curTopic = () => S.grammar[S.topic] || null;
+
+ROUTES.grammar = function () {
+  if (!S.grammar.length) { go('home'); return el('<div></div>'); }
+  const rows = S.grammar.map((t, i) => {
+    const done = lessonsDone(t), total = t.lessons.length;
+    return `<button class="les-row${done === total ? ' done' : ''}" data-topic="${i}">
+      <span class="les-n">${done === total ? ico('check') : i + 1}</span>
+      <span class="les-t"><b>${esc(t.title)}</b><i>Пройдено ${done} из ${total} уроков</i></span>
+      <span class="ma">›</span></button>`;
+  }).join('');
+  const box = el(`<div>
+    ${subHead('Грамматика', 'home')}
+    <div class="menu-card">${rows}</div>
+  </div>`);
+  bindSubHead(box);
+  $$('[data-topic]', box).forEach(b => b.onclick = () => { S.topic = +b.dataset.topic; go('lessons'); });
+  return box;
+};
 
 ROUTES.lessons = function () {
-  const data = S.lessons;
-  if (!data) { go('home'); return el('<div></div>'); }
-  const total = data.lessons.length, done = lessonsDone();
+  const data = curTopic();
+  if (!data) { go('grammar'); return el('<div></div>'); }
+  const total = data.lessons.length, done = lessonsDone(data);
   const rows = data.lessons.map((l) => {
     const p = lessonProg(l.id);
     const ok = lessonDone(l.id);
@@ -1381,7 +1402,7 @@ ROUTES.lessons = function () {
       <span class="ma">›</span></button>`;
   }).join('');
   const box = el(`<div>
-    ${subHead(data.title, 'home')}
+    ${subHead(data.title, 'grammar')}
     <p class="sub" style="margin:-4px 2px 16px">${esc(data.lead)}</p>
     <div class="les-total">
       <div class="bar"><i style="width:${total ? done / total * 100 : 0}%"></i></div>
@@ -1420,7 +1441,7 @@ function lessonBlocks(l) {
 }
 
 ROUTES.lesson = function () {
-  const data = S.lessons;
+  const data = curTopic();
   const l = data && data.lessons.find(x => x.id === S.lessonId);
   if (!l) { go('lessons'); return el('<div></div>'); }
   if (S.quiz && S.quiz.id === l.id) return lessonQuiz(l);
@@ -3278,7 +3299,7 @@ function bindStatusBarTap() {
    возвращаются на свои места.
 
    В тренировках жест выключен: там смахивание по карточке уже означает ответ. */
-const BACK_SAFE = ['home', 'dict', 'dictcat', 'menu', 'settings', 'cats', 'lessons', 'alphabet', 'stats', 'about'];
+const BACK_SAFE = ['home', 'dict', 'dictcat', 'menu', 'settings', 'cats', 'grammar', 'lessons', 'alphabet', 'stats', 'about'];
 
 function bindEdgeBack() {
   const EDGE = 28, PART = 0.45, FLING = 0.6, FLING_MIN = 60, SLIP = 60, LAG = 0.3, DIM = 0.28;
@@ -3389,7 +3410,12 @@ function bindDataUpdates() {
       else if (ends(L.data.alphabet)(path)) S.alphabet = await fetch(L.data.alphabet).then(r => r.json());
       else if (ends(L.data.mnemonics)(path)) S.mnemo = await fetch(L.data.mnemonics).then(r => r.json());
       else if (ends(L.data.examples)(path)) S.examples = await fetch(L.data.examples).then(r => r.json());
-      else if (L.lessons && ends(L.lessons)(path)) S.lessons = await fetch(L.lessons).then(r => r.json());
+      else if ((L.grammar || []).some(f => ends(f)(path))) {
+        const i = (L.grammar || []).findIndex(f => ends(f)(path));
+        const t = await fetch(L.grammar[i]).then(r => r.json());
+        const at = S.grammar.findIndex(x => x.file === L.grammar[i]);
+        if (at >= 0) S.grammar[at] = Object.assign(t, { file: L.grammar[i] });
+      }
       else return;
       if (!S.session && !S.alphaQuiz && !S.quiz) render();   // в середине занятия экран не трогаем
     } catch (err) { /* не получилось — останемся на сохранённой версии до следующего запуска */ }
@@ -3439,11 +3465,11 @@ async function boot() {
       // не мешает приложению работать, блок просто не рисуется
       fetch(L.data.examples).then(r => r.json()).catch(() => ({})),
       // раздел грамматики есть не у всех языков; без него приложение работает как раньше
-      L.lessons ? fetch(L.lessons).then(r => r.json()).catch(() => null) : Promise.resolve(null),
+      Promise.all((L.grammar || []).map(f => fetch(f).then(r => r.json()).then(t => Object.assign(t, { file: f })).catch(() => null))),
     ]);
     applyWords(wd);
     S.alphabet = al; S.audio = ai;
-    S.mnemo = mn || {}; S.examples = ex || {}; S.lessons = ls;
+    S.mnemo = mn || {}; S.examples = ex || {}; S.grammar = (ls || []).filter(Boolean);
     if (!Object.keys(S.audio).length) {
       setTimeout(() => toast('Озвучка не загрузилась — закройте приложение и откройте снова'), 800);
     }

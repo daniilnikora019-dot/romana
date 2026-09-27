@@ -8,7 +8,7 @@ const SHELL_FILES = [
   './', './index.html', './style.css', './app.js', './config.js', './manifest.json',
   './icons/icon-192-v2.png', './icons/apple-touch-icon-v2.png',
   L.data.words, L.data.alphabet, L.data.audio, L.data.mnemonics,
-  ...(L.lessons ? [L.lessons] : []),        // раздел грамматики есть не у всех языков
+  ...(L.grammar || []),                    // файлы тем грамматики; у некоторых языков их нет
 ];
 
 self.addEventListener('install', (e) => {
