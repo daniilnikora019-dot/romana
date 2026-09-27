@@ -171,21 +171,18 @@ function audioUrl(text) {
 function speak(text) {
   const url = audioUrl(text);
   if (!url) {
-    toast(Object.keys(S.audio).length ? `Нет озвучки для «${text}»`
-                                      : 'Файл озвучки не загружен — обновите страницу (Cmd+Shift+R)');
+    toast(Object.keys(S.audio).length ? `Нет озвучки для «${text}»` : 'Озвучка ещё не загрузилась');
     return;
   }
   if (S.audioEl) { S.audioEl.pause(); }
   const a = new Audio(url);
   a.playbackRate = S.prog.set.speed || 1;
   S.audioEl = a;
-  a.onerror = () => toast('Звуковой файл не открылся: ' + url.split('/').pop());
-  a.play().catch(err => {
-    // Safari и Chrome блокируют звук без жеста пользователя — сообщаем, а не молчим
-    toast(err.name === 'NotAllowedError'
-      ? 'Браузер заблокировал звук: нажмите кнопку проигрывания ещё раз'
-      : 'Не удалось воспроизвести: ' + err.name);
-  });
+  // Сообщаем только то, с чем человек может что-то сделать: нет сети. Отказы
+  // браузера играть без касания (автоозвучка), обрыв звука следующим словом и
+  // прочие технические ошибки ничего ему не говорят — о них молчим.
+  a.onerror = () => { if (!navigator.onLine) toast('Нет интернета — озвучка этого слова не загрузилась'); };
+  a.play().catch(() => {});
 }
 
 /* ---------------- утилиты ---------------- */
@@ -3426,7 +3423,7 @@ async function boot() {
     S.alphabet = al; S.audio = ai;
     S.mnemo = mn || {}; S.examples = ex || {}; S.lessons = ls;
     if (!Object.keys(S.audio).length) {
-      setTimeout(() => toast('Озвучка не подгрузилась — обновите страницу (Cmd+Shift+R)'), 800);
+      setTimeout(() => toast('Озвучка не загрузилась — закройте приложение и откройте снова'), 800);
     }
   } catch (e) {
     hideSplash(true);
