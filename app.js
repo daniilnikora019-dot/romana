@@ -240,6 +240,8 @@ const ICONS = {
   done:    '<circle cx="12" cy="12" r="8.4"/><path d="M8.3 12.3l2.6 2.6 4.9-5.4"/>',
   trophy:  '<path d="M7.6 4.6h8.8v4.6a4.4 4.4 0 0 1-8.8 0z"/><path d="M7.6 6.2H5.1v1.5a3.2 3.2 0 0 0 2.9 3.2M16.4 6.2h2.5v1.5a3.2 3.2 0 0 1-2.9 3.2"/><path d="M12 13.6v3.4M8.4 19.6h7.2"/>',
   clip:    '<path d="M9 4.6H7a2 2 0 0 0-2 2v12.4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6.6a2 2 0 0 0-2-2h-2"/><rect x="9" y="2.6" width="6" height="4" rx="1.3"/>',
+  translate: '<path d="M3.8 5.6h8.4M8 3.6v2M5.6 5.6c.7 2.9 2.7 5.1 5.6 6.3M10.4 5.6c-.7 2.9-2.7 5.1-5.6 6.3"/><path d="M12.6 20.4l3.9-9 3.9 9M14 17.2h5"/>',
+  copy:    '<rect x="8.6" y="8.6" width="11" height="11" rx="2.2"/><path d="M15.4 8.6V6.6a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2.2"/>',
   chart:   '<path d="M4.4 19.6h15.2M7.6 16.4v-4.8M12 16.4V7.2M16.4 16.4V9.9"/>',
   abc:     '<path d="M2.8 16.4 6.4 7.2l3.6 9.2M4 13.6h4.8"/><path d="M13.6 7.2h3.5a2.3 2.3 0 0 1 0 4.6h-3.5zM13.6 11.8h4a2.3 2.3 0 0 1 0 4.6h-4z"/>',
   burst:   '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.6v3.2M12 18.2v3.2M2.6 12h3.2M18.2 12h3.2M5.3 5.3l2.3 2.3M16.4 16.4l2.3 2.3M18.7 5.3l-2.3 2.3M7.6 16.4l-2.3 2.3"/>',
@@ -277,6 +279,7 @@ function go(route) {
   render();
 }
 function render() {
+  closeCopyMenu();
   const main = $('#main');
   main.innerHTML = '';
   main.appendChild(ROUTES[S.route]());
@@ -833,6 +836,85 @@ function optionsHTML(options, field, numbered) {
            `<button class="opt-play" data-p="${i}" title="Послушать">${ico('play')}</button></div>`;
   }).join('')}</div>`;
 }
+/* Долгое нажатие на вариант после ответа (или правый клик мышью) — всплывает
+   плашка, как в мессенджерах: «Скопировать» кладёт слово с варианта в буфер,
+   «Перевести» показывает под вариантом его перевод. Так можно разобрать и
+   неверные варианты — что они значили. До ответа плашки нет: нажатие на
+   вариант — это сам ответ. */
+function bindOptionCopy(root, options, field) {
+  $$('.opt', root).forEach(b => {
+    let timer = null, x0 = 0, y0 = 0;
+    const open = () => {
+      const x = options[+b.dataset.i];
+      openOptionMenu(b, x[field], b.querySelector('.opt-sub') ? null : () => showOptionTranslation(b, x, field));
+    };
+    const cancel = () => { clearTimeout(timer); timer = null; };
+    b.addEventListener('pointerdown', (e) => {
+      if (!b.classList.contains('done')) return;
+      x0 = e.clientX; y0 = e.clientY;
+      cancel();
+      timer = setTimeout(() => { timer = null; open(); }, 450);
+    });
+    b.addEventListener('pointermove', (e) => {
+      if (timer && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) cancel();   // это прокрутка
+    });
+    b.addEventListener('pointerup', cancel);
+    b.addEventListener('pointercancel', cancel);
+    b.addEventListener('contextmenu', (e) => {
+      if (!b.classList.contains('done')) return;
+      e.preventDefault(); cancel(); open();
+    });
+  });
+}
+function showOptionTranslation(b, x, field) {
+  const sub = field === 'ka'
+    ? `<span class="opt-sub">${esc(x.ru)}</span>`
+    : `<span class="opt-sub ${L.script}">${esc(x.ka)}${S.prog.set.translit ? ` · <i>${esc(x.tr)}</i>` : ''}</span>`;
+  b.insertAdjacentHTML('beforeend', sub);
+}
+
+let copyMenu = null;
+function closeCopyMenu() {
+  if (!copyMenu) return;
+  copyMenu.remove(); copyMenu = null;
+  document.removeEventListener('pointerdown', copyOutside, true);
+  window.removeEventListener('scroll', closeCopyMenu, true);
+}
+function copyOutside(e) { if (copyMenu && !copyMenu.contains(e.target)) closeCopyMenu(); }
+function openOptionMenu(anchor, text, onTranslate) {
+  closeCopyMenu();
+  copyMenu = el(`<div class="copy-menu" role="menu">
+    <button type="button" data-a="copy">${ico('copy')}<span>Скопировать</span></button>
+    ${onTranslate ? `<button type="button" data-a="tr">${ico('translate')}<span>Перевести</span></button>` : ''}
+  </div>`);
+  document.body.appendChild(copyMenu);
+  const r = anchor.getBoundingClientRect(), w = copyMenu.offsetWidth, h = copyMenu.offsetHeight;
+  copyMenu.style.left = Math.min(Math.max(12, r.right - w - 8), window.innerWidth - w - 12) + 'px';
+  // над плашкой, а если сверху нет места — под ней
+  copyMenu.style.top = (r.top - h - 8 > 12 ? r.top - h - 8 : r.bottom + 8) + 'px';
+  $('[data-a=copy]', copyMenu).onclick = () => {
+    copyText(text).then(
+      () => toast(`Скопировано: ${text.length > 40 ? text.slice(0, 40) + '…' : text}`),
+      () => toast('Не удалось скопировать'));
+    closeCopyMenu();
+  };
+  const tr = $('[data-a=tr]', copyMenu);
+  if (tr) tr.onclick = () => { onTranslate(); closeCopyMenu(); };
+  setTimeout(() => {                                   // не ловим то же касание, что открыло плашку
+    document.addEventListener('pointerdown', copyOutside, true);
+    window.addEventListener('scroll', closeCopyMenu, true);
+  });
+}
+function copyText(t) {
+  if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t);
+  return new Promise((ok, fail) => {                   // старые WebView без Clipboard API
+    const ta = el('<textarea readonly style="position:fixed;opacity:0"></textarea>');
+    ta.value = t; document.body.appendChild(ta); ta.select();
+    const done = document.execCommand && document.execCommand('copy');
+    ta.remove(); done ? ok() : fail();
+  });
+}
+
 function bindOptionPlay(root, options) {
   $$('.opt-play', root).forEach(b => b.onclick = (e) => {
     e.stopPropagation();
@@ -1484,6 +1566,7 @@ function exerciseChoice(w, mode, o) {
   </div>`);
   bindSpeak(box, w.ka);
   bindOptionPlay(box, options);
+  bindOptionCopy(box, options, field);
   if (askKa) holdAudio(box);                      // ответ — изучаемое слово, озвучка назвала бы его
   else if (S.prog.set.autoplay || mode === 'listen') setTimeout(() => speak(w.ka), 200);
 
@@ -1777,7 +1860,13 @@ function exerciseReview(w, o) {
     const options = shuffle([w, ...distractors(w, field, 3)]);
     zone.innerHTML = optionsHTML(options, field, false);
     bindOptionPlay(zone, options);
+    bindOptionCopy(zone, options, field);
+    let picked = false;
     $$('.opt', zone).forEach(b => b.onclick = () => {
+      // после ответа нажатие на другой вариант ничего не красит: раньше он
+      // становился «неверным», хотя ответ уже был дан
+      if (picked) return;
+      picked = true;
       const ok = options[+b.dataset.i].id === w.id;
       $$('.opt', zone).forEach((x, i) => {
         x.classList.add('done');
@@ -2275,7 +2364,7 @@ function alphabetQuiz() {
     <div class="options">${opts.map((o, i) => `
       <button class="opt opt-letter" data-i="${i}">
         <b class="${L.script}">${o[0]}</b>
-        <span class="opt-play" data-p="${i}" title="Послушать">${ico('play')}</span>
+        <span class="alpha-play" data-p="${i}" title="Послушать">${ico('play')}</span>
       </button>`).join('')}</div>` : `
     <div class="word-card alpha-card">
       <div class="word-ka ${L.script}">${a[0]}</div>
@@ -2316,7 +2405,7 @@ function alphabetQuiz() {
   if (speakBtn) speakBtn.onclick = () => speak(a[1]);
   // В обратном режиме послушать можно любой из вариантов: это подсказка,
   // но её человек включает сам — как и кнопку звука в прямом режиме.
-  $$('.opt-play', box).forEach(p => p.onclick = (e) => { e.stopPropagation(); speak(opts[+p.dataset.p][1]); });
+  $$('.alpha-play', box).forEach(p => p.onclick = (e) => { e.stopPropagation(); speak(opts[+p.dataset.p][1]); });
   const leave = () => {
     const asked = q.asked, right = q.right;
     S.alphaQuiz = null; S.alphaKeys = null;

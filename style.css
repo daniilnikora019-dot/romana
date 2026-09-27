@@ -274,6 +274,21 @@ h2.sect + .menu-card{margin-bottom:18px}
   padding:14px 18px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line);
   text-align:left;font-size:15px;font-weight:500;transition:border-color .13s,background .13s;
 }
+/* варианты не выделяются как текст: долгое нажатие открывает своё меню копирования */
+.opt{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.opt .opt-sub{display:block;margin-top:4px;font-size:13.5px;font-weight:400;color:var(--muted);line-height:1.35}
+.opt .opt-sub i{font-style:normal;opacity:.85}
+.copy-menu{
+  position:fixed;z-index:70;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-md);box-shadow:var(--shadow-md);padding:4px;animation:fade .14s ease;
+}
+.copy-menu{display:grid;gap:2px}
+.copy-menu button{
+  display:flex;align-items:center;gap:10px;width:100%;padding:11px 18px 11px 13px;border-radius:9px;
+  font-size:15.5px;font-weight:500;color:var(--text);white-space:nowrap;
+}
+.copy-menu button .icn{width:19px;height:19px;flex:none;vertical-align:0}
+.copy-menu button:active{background:var(--surface-2)}
 .opt.right{border-color:var(--green);background:var(--green-soft);color:var(--green);font-weight:640}
 .opt.wrong{border-color:var(--clay);background:var(--clay-soft);color:var(--clay)}
 .opt:disabled,.opt.done{cursor:default}
@@ -505,11 +520,11 @@ h2.sect + .menu-card{margin-bottom:18px}
 .alpha-sound{font-size:23px;font-weight:600;line-height:1.35;margin:4px 0 2px;letter-spacing:-.3px}
 .opt-letter{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px}
 .opt-letter b{font-size:30px;font-weight:600;line-height:1.15}
-.opt-play{
+.alpha-play{
   width:34px;height:34px;flex:0 0 34px;border-radius:50%;background:var(--accent-soft);
   color:var(--accent);display:grid;place-items:center;
 }
-.opt-play .icn{width:16px;height:16px;vertical-align:0}
+.alpha-play .icn{width:16px;height:16px;vertical-align:0}
 
 /* карточка буквы в тренировке: ниже обычной, чтобы под вариантами помещалась азбука */
 .alpha-card{padding:20px 18px 18px}
@@ -801,7 +816,8 @@ canvas{display:block;width:100%}
   .sort-btn:hover{border-color:var(--accent);color:var(--accent)}
   .sort-menu button:hover{background:var(--surface-2)}
   .mode-card:hover{border-color:var(--accent);background:var(--accent-soft)}
-  .opt-play:hover{background:var(--accent);color:#fff}
+  .alpha-play:hover{background:var(--accent);color:#fff}
+  .copy-menu button:hover{background:var(--surface-2)}
   .letters button:hover{background:var(--accent-soft);border-color:var(--accent)}
   .tools button:hover:not(:disabled){background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line)}
   .grade-row button:first-child:hover:not(:disabled){background:var(--clay-soft);color:var(--clay)}
