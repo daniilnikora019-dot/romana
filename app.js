@@ -3020,6 +3020,9 @@ const SYNC = {
   every: 2 * 60e3,
 };
 const SYNC_KEY = `${L.key}_sync_v1`;
+// локальная проверка на машине разработчика на сервер не пишет: иначе каждая
+// проверка с чистым хранилищем заводила бы новый пустой аккаунт
+const SYNC_OFF = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 let syncTimer = null, syncBusy = false, syncDirty = false;
 
 function syncState() {
@@ -3065,7 +3068,7 @@ function syncSoon() {
 }
 
 async function syncPush(leaving) {
-  if (!syncDirty || syncBusy || !navigator.onLine) return false;
+  if (SYNC_OFF || !syncDirty || syncBusy || !navigator.onLine) return false;
   syncBusy = true;
   try {
     const token = await syncToken();
