@@ -866,6 +866,10 @@ button,.cat-card,.letter-card,.wcard,.cat-line,.menu-row,.wrow{-webkit-tap-highl
 
 /* примеры употребления: предложение, его озвучка и свёрнутый перевод */
 .examples{margin-top:14px;border-top:1px solid var(--line)}
+/* примеры после ответа — отдельной карточкой под упражнением */
+.examples-after{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:12px 16px 6px}
+.examples-after .examples{margin-top:0;border-top:0}
+.examples-title{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.3px;margin-bottom:2px}
 .ex{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;
   gap:8px;padding:11px 0;border-bottom:1px solid var(--line)}
 .ex:last-child{border-bottom:none}

@@ -797,6 +797,18 @@ function bindExamples(root, w) {
   });
 }
 
+/* Примеры после ответа — во всех упражнениях, не только при знакомстве со словом.
+   Встают под карточкой, чтобы не сдвигать кнопки оценки, и появляются только
+   после ответа: до него предложение с переводом подсказало бы значение. */
+function appendExamples(box, w) {
+  if (box.querySelector('.examples-after')) return;
+  const html = examplesHTML(w);
+  if (!html) return;
+  const wrap = el(`<div class="examples-after"><div class="examples-title">Примеры</div>${html}</div>`);
+  box.appendChild(wrap);
+  bindExamples(wrap, w);
+}
+
 function bindReveal(root, after) {
   const btn = root.querySelector('.reveal-btn');
   if (!btn) return () => {};
@@ -1586,6 +1598,7 @@ function exerciseChoice(w, mode, o) {
         <div class="word-ru" style="font-size:17px;margin-top:8px">${esc(w.ru)}</div></div>`));
     }
     afterAnswer(box, null, ok, w, (again) => o.onDone(ok, again));
+    appendExamples(box, w);
   };
   $$('.opt', box).forEach(b => b.onclick = () => answer(+b.dataset.i));
   bindBack(box);
@@ -1643,6 +1656,7 @@ function exerciseRecall(w, o) {
     if (slot && hasMnemo(w)) { slot.hidden = false; bindMnemo(slot, w); }
     releaseAudio(box);
     if (backwards || !S.prog.set.autoplay) speakWord();
+    appendExamples(box, w);
   };
   const grade = (ok) => {
     if (!shown || done) return;
@@ -1711,6 +1725,7 @@ function exerciseTyping(w, o) {
     speak(w.ka);
     $$('.answer-actions .btn', box).forEach(b => b.disabled = true);
     afterAnswer(box, null, ok, w, (again) => o.onDone(ok, again));
+    appendExamples(box, w);
   };
   const check = () => {
     const typed = input.value.trim();
@@ -1780,6 +1795,7 @@ function exerciseReview(w, o) {
     releaseAudio(box);
     showMnemo();
     speak(w.ka);
+    appendExamples(box, w);
     // Инструменты проверки после ответа не нужны, а место занимают: убираем их,
     // чтобы карточка вместе с оценкой помещалась на экран без прокрутки.
     tools.hidden = true;
@@ -1814,12 +1830,14 @@ function exerciseReview(w, o) {
   // иначе закрытый ответ можно было бы просто послушать.
   const closeReveal = () => {
     reveal.hidden = true;
+    const ex = box.querySelector('.examples-after');   // примеры выдали бы закрытый ответ
+    if (ex) ex.remove();
     if (!askKa) holdAudio(box);
     tools.querySelector('[data-t=look]').classList.remove('used');
   };
   const look = () => {
     if (!reveal.hidden) { closeReveal(); return; }
-    reveal.hidden = false; releaseAudio(box); showMnemo();
+    reveal.hidden = false; releaseAudio(box); showMnemo(); appendExamples(box, w);
     tools.querySelector('[data-t=look]').classList.add('used');
   };
 
@@ -1928,6 +1946,7 @@ function exerciseBuild(w, o) {
     $$('.letters button', box).forEach(b => b.disabled = true);
     $$('.answer-actions .btn', box).forEach(b => b.disabled = true);   // ответ уже показан — не даём его стереть
     afterAnswer(box, null, ok, w, (again) => o.onDone(ok, again));
+    appendExamples(box, w);
   };
   const redraw = () => { slot.textContent = built || '…'; };
   redraw();
