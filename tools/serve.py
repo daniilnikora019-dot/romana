@@ -19,7 +19,36 @@ def lan_ip():
         s.close()
 
 
+# Отдаём только то, что уходит на сайт при выкладке (см. .github/workflows/deploy.yml).
+# Белый список, а не чёрный: сервер запускается из корня проекта, где лежат токен
+# бота (telegram_config.json), .git и tools/ — с --lan их увидела бы вся сеть.
+ALLOWED_FILES = {'index.html', 'style.css', 'app.js', 'config.js', 'sw.js',
+                 'manifest.json', 'robots.txt'}
+ALLOWED_DIRS = {'icons', 'data', 'audio'}
+DENIED = {'data/wod_history.json'}          # история рассылки на сайт тоже не попадает
+
+
+def allowed(url_path):
+    path = url_path.split('?', 1)[0].split('#', 1)[0].lstrip('/')
+    if path in ('', 'index.html'):
+        return True
+    parts = path.split('/')
+    if any(not x or x.startswith('.') or x == '..' for x in parts) or path in DENIED:
+        return False
+    return path in ALLOWED_FILES if len(parts) == 1 else parts[0] in ALLOWED_DIRS
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
+    def send_head(self):
+        if not allowed(self.path):
+            self.send_error(404)
+            return None
+        return super().send_head()
+
+    def list_directory(self, path):          # содержимое папок не показываем
+        self.send_error(404)
+        return None
+
     def end_headers(self):
         # аудио кэшировать полезно, остальное — нет
         if self.path.endswith('.mp3'):
