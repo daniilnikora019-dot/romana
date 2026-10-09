@@ -272,8 +272,9 @@ h2.sect + .menu-card{margin-bottom:18px}
 .alpha-next[hidden]{display:none}
 .opt{
   padding:14px 18px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line);
-  text-align:left;font-size:15px;font-weight:500;transition:border-color .13s,background .13s;
+  text-align:left;font-size:18px;line-height:1.25;font-weight:500;transition:border-color .13s,background .13s;
 }
+/* шрифт крупнее, а высота строки та же: 18 × 1,25 = 15 × 1,5 — карточки не растут */
 /* варианты не выделяются как текст: долгое нажатие открывает своё меню копирования */
 .opt{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .opt .opt-sub{display:block;margin-top:4px;font-size:13.5px;font-weight:400;color:var(--muted);line-height:1.35}
