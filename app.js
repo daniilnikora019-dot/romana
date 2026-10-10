@@ -2862,6 +2862,8 @@ ROUTES.settings = function () {
     </div>
     <div id="s-check-slot"></div>
 
+    ${NOTIFY && pushState().allowed ? pushSection(row, sw) : ''}
+
     <div class="set-sect">Резервная копия</div>
     <p class="set-note">Прогресс хранится только на этом устройстве. Если удалить значок с экрана
       «Домой», iOS сотрёт его вместе с приложением — поэтому время от времени сохраняйте копию.</p>
@@ -2930,6 +2932,7 @@ ROUTES.settings = function () {
     out.textContent = lines.join('\n');
     $('#s-check-slot', bg).appendChild(out);
   };
+  if ($('#s-push', bg)) bindPushSettings(bg);
   $('#s-sync', bg).onclick = async () => {
     const st = $('#s-sync-st', bg);
     st.textContent = 'сохраняю…';
@@ -3138,6 +3141,149 @@ function syncStatusText() {
   const h = Math.floor(m / 60);
   if (h < 24) return `сохранена ${plural(h, 'час', 'часа', 'часов')} назад`;
   return `сохранена ${new Date(st.at).toLocaleDateString('ru-RU')}`;
+}
+
+/* ---------------- напоминания ----------------
+   Push на телефон, если дневная норма новых слов ещё не взята. Работает только
+   у приложения с экрана «Домой» (iOS 16.4+). Включается ключом notify в
+   config.js — без него раздела нет совсем, — а дальше сервер решает, кому
+   можно: проверка push_allowed. Шлёт сервер (функция по расписанию раз в
+   10 минут); он же читает копию прогресса и выбирает текст. Здесь —
+   только подписка устройства и её настройки. */
+const NOTIFY = L.notify;
+const PUSH_KEY = `${L.key}_push_v1`;
+
+function pushState() {
+  try { return JSON.parse(localStorage.getItem(PUSH_KEY)) || {}; } catch (e) { return {}; }
+}
+function setPushState(patch) {
+  const st = Object.assign(pushState(), patch);
+  try { localStorage.setItem(PUSH_KEY, JSON.stringify(st)); } catch (e) {}
+  return st;
+}
+function pushSupported() {
+  return !!(navigator.serviceWorker && window.PushManager && window.Notification);
+}
+const pushTz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+async function pushApi(path, method, body, prefer) {
+  if (SYNC_OFF) throw new Error('локальная проверка');   // как и копия: не заводить пустых аккаунтов
+  const token = await syncToken();
+  const r = await fetch(`${SYNC.url}${path}`, {
+    method,
+    headers: {
+      apikey: SYNC.key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json',
+      ...(prefer ? { Prefer: prefer } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!r.ok) throw new Error(`${r.status}`);
+  return r;
+}
+
+function b64uBytes(s) {
+  const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - s.length % 4) % 4));
+  return Uint8Array.from(bin, c => c.charCodeAt(0));
+}
+
+/* подписать устройство (или освежить подписку) и записать её на сервер */
+async function pushSubscribe() {
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription() ||
+    await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uBytes(NOTIFY.vapid) });
+  const j = sub.toJSON();
+  await pushApi('/rest/v1/push_subs?on_conflict=user_id,app', 'POST', {
+    app: L.key, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth,
+    enabled: true, remind_at: pushState().at || '19:00', tz: pushTz(),
+    updated_at: new Date().toISOString(),
+  }, 'resolution=merge-duplicates,return=minimal');
+}
+const pushPatch = (patch) => pushApi(`/rest/v1/push_subs?app=eq.${L.key}`, 'PATCH',
+  { ...patch, updated_at: new Date().toISOString() }, 'return=minimal');
+
+/* При запуске: узнать, разрешены ли напоминания этому аккаунту, и освежить
+   подписку — iOS иногда меняет её адрес, а часовой пояс мог смениться. */
+async function bindPush() {
+  if (!NOTIFY || SYNC_OFF || !navigator.onLine || !syncState().refresh) return;
+  try {
+    const r = await pushApi('/rest/v1/rpc/push_allowed', 'POST', { p_app: L.key });
+    setPushState({ allowed: (await r.json()) === true });
+    if (pushState().allowed && pushState().on && pushSupported() && Notification.permission === 'granted') {
+      await pushSubscribe();
+    }
+  } catch (e) { /* без сети — в следующий раз */ }
+}
+
+/* раздел «Напоминания» в настройках; row и sw — строители строк оттуда же */
+function pushSection(row, sw) {
+  const st = pushState(), at = st.at || '19:00', times = [];
+  for (let m = 7 * 60; m <= 23 * 60; m += 30) {
+    times.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${m % 60 ? '30' : '00'}`);
+  }
+  const note = !pushSupported()
+    ? 'Уведомления приходят только в приложение, открытое значком с экрана «Домой» (iOS 16.4 и новее).'
+    : Notification.permission === 'denied'
+      ? 'Уведомления для приложения запрещены. Разрешить: Настройки iPhone → Уведомления → значок приложения.'
+      : 'Если норма уже взята, в этот день напоминание не придёт.';
+  return `<div class="set-sect">Напоминания</div>
+    <div class="set-group">
+      ${row('Напоминать о новых словах', 'Раз в день, если дневная норма ещё не взята',
+        `<span id="s-push">${sw(st.on && pushSupported())}</span>`)}
+      ${row('Время', 'По часам этого телефона', `<select id="s-push-at">
+        ${times.map(t => `<option ${t === at ? 'selected' : ''}>${t}</option>`).join('')}</select>`)}
+      ${row('Пробное напоминание', 'Проверить, что уведомления доходят',
+        `<button class="btn ghost sm" id="s-push-test" ${st.on ? '' : 'disabled'}>Прислать</button>`)}
+    </div>
+    <p class="set-note" style="margin-top:8px">${note}</p>`;
+}
+
+function bindPushSettings(bg) {
+  const swEl = $('#s-push', bg), atEl = $('#s-push-at', bg), testEl = $('#s-push-test', bg);
+  const show = (on) => { swEl.firstElementChild.classList.toggle('on', on); testEl.disabled = !on; };
+  let busy = false;
+  swEl.onclick = async () => {
+    if (busy) return;
+    if (!pushSupported()) { toast('Уведомления работают только с экрана «Домой»'); return; }
+    busy = true;
+    try {
+      if (!pushState().on) {
+        // разрешение — первым делом: iOS спрашивает его только прямо из нажатия
+        if (await Notification.requestPermission() !== 'granted') { toast('Уведомления не разрешены'); return; }
+        setPushState({ at: atEl.value });
+        await pushSubscribe();
+        setPushState({ on: true }); show(true);
+        toast(`Напомню в ${atEl.value}, если норма не будет взята`);
+      } else {
+        await pushPatch({ enabled: false });
+        setPushState({ on: false }); show(false);
+        toast('Напоминания выключены');
+      }
+    } catch (e) {
+      toast('Не получилось: нет связи с сервером');
+    } finally { busy = false; }
+  };
+  atEl.onchange = async () => {
+    setPushState({ at: atEl.value });
+    if (!pushState().on) return;
+    try { await pushPatch({ remind_at: atEl.value, tz: pushTz() }); toast(`Напоминание — в ${atEl.value}`); }
+    catch (e) { toast('Время не сохранилось: нет связи'); }
+  };
+  testEl.onclick = async () => {
+    testEl.disabled = true;
+    try {
+      if (SYNC_OFF) throw new Error('локальная проверка');
+      const token = await syncToken();
+      const r = await fetch(`${SYNC.url}/functions/v1/${NOTIFY.fn}`, {
+        method: 'POST',
+        headers: { apikey: SYNC.key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app: L.key }),
+      });
+      const j = await r.json().catch(() => ({}));
+      toast(j.result === 'sent' ? 'Отправлено — сейчас придёт' : `Не дошло: ${j.error || j.result || r.status}`);
+    } catch (e) {
+      toast('Нет связи с сервером');
+    } finally { testEl.disabled = !pushState().on; }
+  };
 }
 
 /* ---------------- резервная копия прогресса ----------------
@@ -3503,6 +3649,7 @@ async function boot() {
   bindStatusBarTap();
   bindDataUpdates();
   bindSync();
+  bindPush();
   document.addEventListener('keydown', (e) => {
     if (e.target.matches('input,select,textarea')) return;
     if (S.alphaQuiz && S.alphaKeys) S.alphaKeys(e);
