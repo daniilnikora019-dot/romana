@@ -3238,42 +3238,44 @@ function pushSection(row, sw) {
       ${row('Пробное напоминание', 'Проверить, что уведомления доходят',
         `<button class="btn ghost sm" id="s-push-test" ${st.on ? '' : 'disabled'}>Прислать</button>`)}
     </div>
-    <p class="set-note" style="margin-top:8px">${note}</p>`;
+    <p class="set-note" id="s-push-note" style="margin-top:8px">${note}</p>`;
 }
 
 function bindPushSettings(bg) {
   const swEl = $('#s-push', bg), atEl = $('#s-push-at', bg), testEl = $('#s-push-test', bg);
   const show = (on) => { swEl.firstElementChild.classList.toggle('on', on); testEl.disabled = !on; };
+  // без всплывающих плашек: состояние видно по переключателю, а ошибка —
+  // строкой под разделом, на месте обычной подсказки
+  const noteEl = $('#s-push-note', bg), hint = noteEl.textContent;
+  const say = (msg) => { noteEl.textContent = msg || hint; };
   let busy = false;
   swEl.onclick = async () => {
     if (busy) return;
-    if (!pushSupported()) { toast('Уведомления работают только с экрана «Домой»'); return; }
-    busy = true;
+    if (!pushSupported()) return;                 // подсказка под разделом уже это объясняет
+    busy = true; say();
     try {
       if (!pushState().on) {
         // разрешение — первым делом: iOS спрашивает его только прямо из нажатия
-        if (await Notification.requestPermission() !== 'granted') { toast('Уведомления не разрешены'); return; }
+        if (await Notification.requestPermission() !== 'granted') { say('Уведомления не разрешены. Разрешить: Настройки iPhone → Уведомления → значок приложения.'); return; }
         setPushState({ at: atEl.value });
         await pushSubscribe();
         setPushState({ on: true }); show(true);
-        toast(`Напомню в ${atEl.value}, если норма не будет взята`);
       } else {
         await pushPatch({ enabled: false });
         setPushState({ on: false }); show(false);
-        toast('Напоминания выключены');
       }
     } catch (e) {
-      toast('Не получилось: нет связи с сервером');
+      say('Не получилось: нет связи с сервером. Попробуйте ещё раз.');
     } finally { busy = false; }
   };
   atEl.onchange = async () => {
-    setPushState({ at: atEl.value });
+    setPushState({ at: atEl.value }); say();
     if (!pushState().on) return;
-    try { await pushPatch({ remind_at: atEl.value, tz: pushTz() }); toast(`Напоминание — в ${atEl.value}`); }
-    catch (e) { toast('Время не сохранилось: нет связи'); }
+    try { await pushPatch({ remind_at: atEl.value, tz: pushTz() }); }
+    catch (e) { say('Время не сохранилось: нет связи с сервером.'); }
   };
   testEl.onclick = async () => {
-    testEl.disabled = true;
+    testEl.disabled = true; say();
     try {
       if (SYNC_OFF) throw new Error('локальная проверка');
       const token = await syncToken();
@@ -3283,9 +3285,9 @@ function bindPushSettings(bg) {
         body: JSON.stringify({ app: L.key }),
       });
       const j = await r.json().catch(() => ({}));
-      toast(j.result === 'sent' ? 'Отправлено — сейчас придёт' : `Не дошло: ${j.error || j.result || r.status}`);
+      if (j.result !== 'sent') say(`Не дошло: ${j.error || j.result || r.status}`);
     } catch (e) {
-      toast('Нет связи с сервером');
+      say('Нет связи с сервером.');
     } finally { testEl.disabled = !pushState().on; }
   };
 }
