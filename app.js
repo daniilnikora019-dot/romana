@@ -3194,7 +3194,7 @@ async function pushSubscribe() {
   const j = sub.toJSON();
   await pushApi('/rest/v1/push_subs?on_conflict=user_id,app', 'POST', {
     app: L.key, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth,
-    enabled: true, remind_at: pushState().at || '19:00', tz: pushTz(),
+    enabled: true, tz: pushTz(),
     updated_at: new Date().toISOString(),
   }, 'resolution=merge-duplicates,return=minimal');
 }
@@ -3218,77 +3218,43 @@ async function bindPush() {
   } catch (e) { /* без сети — в следующий раз */ }
 }
 
-/* раздел «Напоминания» в настройках; row и sw — строители строк оттуда же */
+/* раздел «Напоминания» в настройках: только включить или выключить. Когда
+   слать, решает сервер (вечером, если норма не взята); row и sw — строители
+   строк из настроек. Строка под разделом пуста и появляется только при ошибке. */
 function pushSection(row, sw) {
-  const st = pushState(), at = st.at || '19:00', times = [];
-  for (let m = 7 * 60; m <= 23 * 60; m += 30) {
-    times.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${m % 60 ? '30' : '00'}`);
-  }
-  const note = !pushSupported()
-    ? 'Уведомления приходят только в приложение, открытое значком с экрана «Домой» (iOS 16.4 и новее).'
-    : Notification.permission === 'denied'
-      ? 'Уведомления для приложения запрещены. Разрешить: Настройки iPhone → Уведомления → значок приложения.'
-      : 'Если норма уже взята, в этот день напоминание не придёт.';
   return `<div class="set-sect">Напоминания</div>
     <div class="set-group">
-      ${row('Напоминать о новых словах', 'Раз в день, если дневная норма ещё не взята',
-        `<span id="s-push">${sw(st.on && pushSupported())}</span>`)}
-      ${row('Время', 'По часам этого телефона', `<select id="s-push-at">
-        ${times.map(t => `<option ${t === at ? 'selected' : ''}>${t}</option>`).join('')}</select>`)}
-      ${row('Пробное напоминание', 'Проверить, что уведомления доходят',
-        `<button class="btn ghost sm" id="s-push-test" ${st.on ? '' : 'disabled'}>Прислать</button>`)}
+      ${row('Присылать уведомления', '',
+        `<span id="s-push">${sw(pushState().on && pushSupported())}</span>`)}
     </div>
-    <p class="set-note" id="s-push-note" style="margin-top:8px">${note}</p>`;
+    <p class="set-note" id="s-push-note" style="margin-top:8px" hidden></p>`;
 }
 
 function bindPushSettings(bg) {
-  const swEl = $('#s-push', bg), atEl = $('#s-push-at', bg), testEl = $('#s-push-test', bg);
-  const show = (on) => { swEl.firstElementChild.classList.toggle('on', on); testEl.disabled = !on; };
-  // без всплывающих плашек: состояние видно по переключателю, а ошибка —
-  // строкой под разделом, на месте обычной подсказки
-  const noteEl = $('#s-push-note', bg), hint = noteEl.textContent;
-  const say = (msg) => { noteEl.textContent = msg || hint; };
+  const swEl = $('#s-push', bg), noteEl = $('#s-push-note', bg);
+  const say = (msg) => { noteEl.textContent = msg || ''; noteEl.hidden = !msg; };
   let busy = false;
   swEl.onclick = async () => {
     if (busy) return;
-    if (!pushSupported()) return;                 // подсказка под разделом уже это объясняет
+    if (!pushSupported()) { say('Уведомления работают только в приложении, открытом со значка на экране «Домой».'); return; }
     busy = true; say();
     try {
       if (!pushState().on) {
         // разрешение — первым делом: iOS спрашивает его только прямо из нажатия
-        if (await Notification.requestPermission() !== 'granted') { say('Уведомления не разрешены. Разрешить: Настройки iPhone → Уведомления → значок приложения.'); return; }
-        setPushState({ at: atEl.value });
+        if (await Notification.requestPermission() !== 'granted') {
+          say('Уведомления запрещены. Разрешить: Настройки iPhone → Уведомления → значок приложения.');
+          return;
+        }
         await pushSubscribe();
-        setPushState({ on: true }); show(true);
+        setPushState({ on: true });
       } else {
         await pushPatch({ enabled: false });
-        setPushState({ on: false }); show(false);
+        setPushState({ on: false });
       }
+      swEl.firstElementChild.classList.toggle('on', pushState().on);
     } catch (e) {
       say('Не получилось: нет связи с сервером. Попробуйте ещё раз.');
     } finally { busy = false; }
-  };
-  atEl.onchange = async () => {
-    setPushState({ at: atEl.value }); say();
-    if (!pushState().on) return;
-    try { await pushPatch({ remind_at: atEl.value, tz: pushTz() }); }
-    catch (e) { say('Время не сохранилось: нет связи с сервером.'); }
-  };
-  testEl.onclick = async () => {
-    testEl.disabled = true; say();
-    try {
-      if (SYNC_OFF) throw new Error('локальная проверка');
-      const token = await syncToken();
-      const r = await fetch(`${SYNC.url}/functions/v1/${NOTIFY.fn}`, {
-        method: 'POST',
-        headers: { apikey: SYNC.key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ app: L.key }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (j.result !== 'sent') say(`Не дошло: ${j.error || j.result || r.status}`);
-    } catch (e) {
-      say('Нет связи с сервером.');
-    } finally { testEl.disabled = !pushState().on; }
   };
 }
 
