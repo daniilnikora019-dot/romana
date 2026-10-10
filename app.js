@@ -3207,7 +3207,11 @@ async function bindPush() {
   if (!NOTIFY || SYNC_OFF || !navigator.onLine || !syncState().refresh) return;
   try {
     const r = await pushApi('/rest/v1/rpc/push_allowed', 'POST', { p_app: L.key });
-    setPushState({ allowed: (await r.json()) === true });
+    const allowed = (await r.json()) === true, was = pushState().allowed;
+    setPushState({ allowed });
+    // ответ приходит через секунду-другую после запуска: если настройки уже
+    // открыты, раздел должен появиться сразу, а не при следующем заходе
+    if (allowed !== was && S.route === 'settings') render();
     if (pushState().allowed && pushState().on && pushSupported() && Notification.permission === 'granted') {
       await pushSubscribe();
     }
