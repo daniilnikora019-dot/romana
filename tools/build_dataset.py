@@ -3,9 +3,13 @@
 import json, re, glob, os, sys, collections, hashlib
 
 BASE = os.path.expanduser('~/Developer/apps/romana')
-WIKT = '/tmp/ro_ru_wikt.jsonl'
-FREQ_FILES = ['/tmp/ron_news_2022_300K/ron_news_2022_300K-words.txt',
-              '/tmp/ron_wikipedia_2021_300K/ron_wikipedia_2021_300K-words.txt']
+# Исходники (выгрузки Викисловаря, частотные списки Leipzig) — в sources/
+# рядом с проектом, не в /tmp: macOS чистит /tmp от файлов старше 3 дней,
+# и пересборка словаря молча становилась невозможной (11.10.2026).
+SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'sources') + '/'
+WIKT = SRC + 'ro_ru_wikt.jsonl'
+FREQ_FILES = [SRC + 'ron_news_2022_300K/ron_news_2022_300K-words.txt',
+              SRC + 'ron_wikipedia_2021_300K/ron_wikipedia_2021_300K-words.txt']
 
 sys.path.insert(0, os.path.join(BASE, 'tools'))
 from translit_ro import transcribe
@@ -17,8 +21,8 @@ def translit(w):
 # ---------- внешние источники подтверждения написания ----------
 attested = set()
 personal_names = set()          # заполняется ниже из помет самого Викисловаря
-for _p in ['/tmp/ron_news_2022_300K/ron_news_2022_300K-words.txt',
-           '/tmp/ron_wikipedia_2021_300K/ron_wikipedia_2021_300K-words.txt']:
+for _p in [SRC + 'ron_news_2022_300K/ron_news_2022_300K-words.txt',
+           SRC + 'ron_wikipedia_2021_300K/ron_wikipedia_2021_300K-words.txt']:
     for _line in open(_p, encoding='utf-8'):
         _q = _line.rstrip('\n').split('\t')
         if len(_q) >= 3: attested.add(_q[1].lower())
