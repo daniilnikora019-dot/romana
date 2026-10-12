@@ -778,8 +778,11 @@ canvas{display:block;width:100%}
   .chip{padding:7px 12px}
   input[type=search]{min-width:0;width:100%}
   .modal{padding:20px 18px;max-height:88vh}
-  .set-row{flex-wrap:wrap;gap:8px}
-  .set-row select,.set-row input[type=number]{margin-left:auto}
+  /* на телефоне: число и переключатель — справа от подписи в той же строке,
+     список — под подписью на всю ширину, чтобы длинный вариант не обрезался */
+  .set-row{flex-wrap:wrap;gap:10px 12px}
+  .set-row>div:first-child{flex:1 1 0;min-width:0}
+  .set-row select{flex:1 1 100%;max-width:none;width:100%}
   .grade-row button b,.grade-row button span{font-size:13.5px}
   .tools button{width:75px;height:57px}
   .word-ka{font-size:34px}

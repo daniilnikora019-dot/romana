@@ -381,6 +381,15 @@ for i, ka in enumerate(order):
                   'cats': (e['cats'] or ['general'])[:1], 'lvl': e['lvl'],
                   'f': e['f'], 'src': e['src'], 'pos': e.get('pos', ''), 'q': q})
 
+# Ручные правки поверх собранного: перевод, уровень, тема, участие в тренировках.
+# Ведёт их ~/Developer/apps/kartuli/tools/word.py -a <тренажёр>; ключ — само слово.
+OVR = os.path.join(BASE, 'data/overrides.json')
+if os.path.exists(OVR):
+    ovr = json.load(open(OVR, encoding='utf-8'))
+    for w in words:
+        for k, v in ovr.get(w['ka'], {}).items():
+            if k != 'note': w[k] = v
+
 trainable = sum(w['q'] for w in words)
 by_cat = collections.Counter(c for w in words for c in w['cats'])
 by_lvl = collections.Counter(w['lvl'] for w in words)
