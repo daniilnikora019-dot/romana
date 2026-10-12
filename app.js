@@ -166,6 +166,7 @@ function dueQueue() {
 function counts() {
   let learning = 0, mastered = 0, known = 0;
   for (const id in S.prog.w) {
+    if (!S.byId.has(id)) continue;                  // слово убрали из словаря — прогресс хранится, но не считается
     const s = S.prog.w[id].s;
     if (s === 'learning') learning++; else if (s === 'mastered') mastered++; else if (s === 'known') known++;
   }

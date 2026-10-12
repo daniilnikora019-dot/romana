@@ -389,6 +389,7 @@ if os.path.exists(OVR):
     for w in words:
         for k, v in ovr.get(w['ka'], {}).items():
             if k != 'note': w[k] = v
+    words = [w for w in words if not w.pop('drop', False)]      # выброшенные из словаря
 
 trainable = sum(w['q'] for w in words)
 by_cat = collections.Counter(c for w in words for c in w['cats'])
