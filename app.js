@@ -4,6 +4,7 @@
 const LS_KEY = `${L.key}_progress_v1`;
 const THEME_KEY = `${L.key}_theme`;
 const SESSION_KEY = `${L.key}_session_v1`;
+const LEARN_KEY = `${L.key}_learn_v1`;      // прерванная порция новых слов
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
 // интервалы SRS: после 5-го верного ответа слово считается выученным
 const STEPS = [10 * 60e3, 6 * 3600e3, 24 * 3600e3, 3 * 864e5, 7 * 864e5];
@@ -452,6 +453,8 @@ ROUTES.home = function () {
   const c = counts(), t = dayRec(today());
   const goalNew = S.prog.set.newPerDay;
   const unfinished = pendingDrill().length;         // взяли, но ещё ни разу не ответили верно
+  const portion = loadLearn();                      // прерванная порция новых слов
+  const inIntro = portion && portion.phase === 'intro' && portion.i < portion.queue.length;
   /* У слова три статуса: изучается, выучено, уже знаю. Не знаешь слово — значит,
      оно изучается, поэтому в цель дня идёт каждое новое слово, взятое в изучение.
      Одними нажатиями «учить» день всё равно не засчитать: серия и день занятий
@@ -479,11 +482,13 @@ ROUTES.home = function () {
             <span class="ma">›</span></button>
           <button class="menu-row" data-act="learn">
             <span class="mi accent">${ico('spark')}</span>
-            <span class="mt"><b>${unfinished ? 'Продолжить начатое' : 'Учить новые слова'}</b>
-              <i>${unfinished
+            <span class="mt"><b>${inIntro ? 'Продолжить порцию' : unfinished ? 'Продолжить начатое' : 'Учить новые слова'}</b>
+              <i>${inIntro
+                ? `Новое слово ${portion.toTrain.length + 1} из ${portion.target}`
+                : unfinished
                 ? `${plural(unfinished, 'новое слово ждёт', 'новых слова ждут', 'новых слов ждут')} первого повторения`
                 : `Взято сегодня: ${goalText(t.started, goalNew)}`}</i></span>
-            <span class="ma">${unfinished || newLeftToday() || ''} ›</span></button>
+            <span class="ma">${inIntro ? portion.target - portion.toTrain.length : unfinished || newLeftToday() || ''} ›</span></button>
           <button class="menu-row" data-act="review">
             <span class="mi gold">${ico('refresh')}</span>
             <span class="mt"><b>Повторить слова</b>
@@ -598,6 +603,42 @@ function loadSession(kind) {
            left: new Set(d.left), missed: new Set(d.missed), method: null, hist: [] };
 }
 
+/* Порция новых слов тоже жила только в памяти. Стоило iOS выгрузить приложение
+   или открыть «Словарь» — и при возвращении вместо оставшихся слов порции сразу
+   начиналось первое повторение уже взятых: порция из двадцати обрывалась на
+   пятом слове. Теперь ход порции сохраняется, и она продолжается с того же места. */
+function saveLearn(s) {
+  if (!s || s.kind !== 'learn') return;
+  try {
+    localStorage.setItem(LEARN_KEY, JSON.stringify({
+      phase: s.phase, ids: s.queue.map(w => w.id), i: s.i, target: s.target,
+      took: s.toTrain.map(w => w.id), at: Date.now(),
+    }));
+  } catch (e) { /* переполненное хранилище не должно ломать занятие */ }
+}
+function dropLearn() { try { localStorage.removeItem(LEARN_KEY); } catch (e) {} }
+function loadLearn() {
+  let d;
+  try { d = JSON.parse(localStorage.getItem(LEARN_KEY) || 'null'); } catch (e) { return null; }
+  if (!d || Date.now() - d.at > 12 * 3600e3) return null;
+  const get = (ids) => (ids || []).map(id => S.byId.get(id)).filter(Boolean);
+  const took = get(d.took);
+  if (d.phase === 'intro') {
+    // ещё не показанные слова должны оставаться новыми: их могли взять в словаре
+    const all = get(d.ids);
+    const queue = all.slice(0, d.i).concat(all.slice(d.i).filter(w => wp(w.id).s === 'new'));
+    const inQueue = new Set(queue.map(w => w.id));
+    return { kind: 'learn', phase: 'intro', queue, i: d.i, target: d.target, toTrain: took,
+             pool: newQueue().filter(w => !inQueue.has(w.id)), poolIdx: 0, hist: [] };
+  }
+  // первое повторение: остаются слова порции, ещё не названные верно
+  const wait = new Set(pendingDrill().map(w => w.id));
+  const left = took.filter(w => wait.has(w.id));
+  if (!left.length) return null;
+  return { kind: 'learn', phase: 'drill', queue: [], i: 0, target: d.target, toTrain: took,
+           drill: shuffle(left), pending: new Set(left.map(w => w.id)), hist: [] };
+}
+
 /* ---------------- шаг назад: снимок состояния и откат ---------------- */
 function snapshot(w) {
   const t = today();
@@ -647,7 +688,7 @@ function stepBack() {
   if (h.newDone && s.newDone) s.newDone--;
   if (s.left && h.leftHad !== undefined) h.leftHad ? s.left.add(h.snap.id) : s.left.delete(h.snap.id);
   if (s.missed && h.missedHad !== undefined) h.missedHad ? s.missed.add(h.snap.id) : s.missed.delete(h.snap.id);
-  saveSession(s);
+  saveSession(s); saveLearn(s);
   render();
 }
 
@@ -1054,11 +1095,14 @@ function answerGrade(w, ok, drill) {
 /* ---------------- новые слова ---------------- */
 ROUTES.learn = function () {
   if (!S.session || S.session.kind !== 'learn') {
+    S.session = loadLearn();              // прерванная порция — с того же слова
+    if (S.session) return S.session.phase === 'intro' ? learnIntro() : learnDrill();
     const unfinished = pendingDrill();
     if (unfinished.length) {              // сначала доводим до конца начатое
-      S.session = { kind: 'learn', queue: [], i: 0, toTrain: [], phase: 'drill',
+      S.session = { kind: 'learn', queue: [], i: 0, toTrain: unfinished, phase: 'drill',
                     drill: shuffle(unfinished), hist: [],
                     pending: new Set(unfinished.map(w => w.id)) };
+      saveLearn(S.session);
       return learnDrill();
     }
     const q = newQueue();
@@ -1083,6 +1127,7 @@ ROUTES.learn = function () {
     // иначе порция из десяти знакомых слов заканчивалась, не начав ничего учить.
     S.session = { kind: 'learn', queue: q.slice(0, size), pool: q, poolIdx: size,
                   target: size, i: 0, toTrain: [], phase: 'intro' };
+    saveLearn(S.session);
   }
   const s = S.session;
   if (s.phase === 'intro') return learnIntro();
@@ -1129,8 +1174,9 @@ function batchPicker(available, left) {
 function learnIntro() {
   const s = S.session, w = s.queue[s.i];
   if (!w) {
-    if (!s.toTrain.length) { S.session = null; return ROUTES.learn(); }
+    if (!s.toTrain.length) { S.session = null; dropLearn(); return ROUTES.learn(); }
     s.phase = 'drill'; s.i = 0; s.drill = shuffle(s.toTrain.slice()); s.hist = [];
+    saveLearn(s);
     return learnDrill();
   }
   const taken = s.toTrain.length;
@@ -1150,7 +1196,7 @@ function learnIntro() {
       applyNewWordChoice(w, a);
       if (a === 'learn') s.toTrain.push(w);
       if (topUp) s.queue.push(s.pool[s.poolIdx++]);
-      s.i++; render();
+      s.i++; saveLearn(s); render();
     },
   });
 }
@@ -1219,7 +1265,7 @@ function learnDrill() {
   if (!s.pending) s.pending = new Set(s.drill.map(x => x.id));
   if (!w) {
     const n = s.toTrain.length;
-    S.session = null;
+    S.session = null; dropLearn();
     return emptyScreen(ico('burst'), 'Порция пройдена!',
       `Взято в изучение: ${plural(n, 'слово', 'слова', 'слов')}. Они вернутся на повторение по расписанию.`,
       'Следующая порция', () => { S.batch = null; go('learn'); }, 'На главную', () => go('home'));
@@ -1242,7 +1288,7 @@ function learnDrill() {
       // первое повторение не заканчивается, пока каждое слово не будет названо верно
       if (ok) s.pending.delete(w.id); else s.drill.push(w);
       if (again && ok) { s.drill.push(w); s.pending.add(w.id); }
-      s.i++; render();
+      s.i++; saveLearn(s); render();
     },
   });
 }
@@ -3052,7 +3098,7 @@ ROUTES.settings = function () {
     w.onclick = (e) => { if (e.target === w) w.remove(); };
     ok.onclick = () => {
       if (ok.disabled) return;
-      S.prog = defaultProgress(); S.session = null; dropSession();
+      S.prog = defaultProgress(); S.session = null; dropSession(); dropLearn();
       saveProgress(); w.remove(); render(); toast('Прогресс сброшен');
     };
     document.body.appendChild(w);
@@ -3337,7 +3383,7 @@ function applyRestored(p) {
   S.prog.set = Object.assign(defaultProgress().set, p.set || {});
   S.prog.w = p.w || {}; S.prog.days = p.days || {}; S.prog.les = p.les || {};
   S.session = null;
-  dropSession();
+  dropSession(); dropLearn();
   saveProgress();
 }
 
