@@ -739,7 +739,8 @@ function wordCardHTML(w, opts = {}) {
 }
 /* Ассоциация для запоминания: подсказка по созвучию. Необязательный слой —
    если для слова её нет, тренировка работает ровно как раньше. */
-function mnemoHTML() {
+function mnemoHTML(w) {
+  if (!hasMnemo(w)) return '';           // нет ассоциации — нет и кнопки
   return `<div class="mnemo-wrap">
     <button class="btn ghost sm mnemo-btn">${ico('bulb')} Ассоциация</button>
     <div class="mnemo" hidden></div>
@@ -752,9 +753,7 @@ function bindMnemo(root, w) {
   btn.onclick = () => {
     const text = (S.mnemo || {})[w.ka];
     box.hidden = false;
-    box.innerHTML = text
-      ? `${ico('bulb')} ${esc(text)}`
-      : '<span style="color:var(--muted)">Для этого слова ассоциации пока нет — они добавляются постепенно.</span>';
+    box.innerHTML = `${ico('bulb')} ${esc(text)}`;
     btn.disabled = true;
   };
 }
@@ -1181,7 +1180,7 @@ function newWordCard(w, o) {
       <button class="speak" title="Произношение (пробел)">${ico('play')}</button>
       ${revealHTML(w.ru)}
       <div id="ex-slot" hidden>${examplesHTML(w)}</div>
-      ${mnemoHTML()}
+      ${mnemoHTML(w)}
       <div class="grade-row">
         <button data-a="known"><b>Уже знаю</b><span>больше не показывать</span></button>
         <button data-a="learn"><b>Учить это слово</b><span>вернётся на повторение</span></button>
@@ -1572,7 +1571,7 @@ ROUTES.browse = function () {
       ${S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
       <button class="speak lg" title="Произношение">${ico('play')}</button>
       ${revealHTML(w.ru)}
-      ${mnemoHTML()}
+      ${mnemoHTML(w)}
     </div>
     <div class="answer-actions">
       <button class="btn ghost" data-a="prev">← Назад</button>
@@ -1688,7 +1687,7 @@ function exerciseRecall(w, o) {
     <div class="answer-actions" id="stage-show">
       <button class="btn primary block big" data-a="show">Показать ответ</button>
     </div>
-    <div id="mnemo-slot" hidden>${mnemoHTML()}</div>
+    <div id="mnemo-slot" hidden>${mnemoHTML(w)}</div>
     <div class="answer-actions" id="stage-grade" hidden>
       <button class="btn ghost" data-a="no" style="color:var(--clay);border-color:var(--clay)">${ico('cross')} Не вспомнил</button>
       <button class="btn success" data-a="yes">${ico('check')} Вспомнил</button>
@@ -1819,7 +1818,7 @@ function exerciseReview(w, o) {
         ${!askKa && S.prog.set.translit ? `<div class="word-tr">${esc(w.tr)}</div>` : ''}
       </div>
       <div class="zone" id="zone" hidden></div>
-      <div id="mnemo-slot" hidden>${mnemoHTML()}</div>
+      <div id="mnemo-slot" hidden>${mnemoHTML(w)}</div>
       <div class="tools" id="tools">
         <button data-t="type" title="Написать слово">${ico('keyboard')}</button>
         <button data-t="look" title="Посмотреть ответ">${ico('eye')}</button>
