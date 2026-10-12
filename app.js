@@ -75,15 +75,25 @@ let saveTimer = null;
 /* Номер формата прогресса. Меняется, когда меняется устройство данных: по нему
    и приложение, и сервер понимают, как читать сохранённую копию. */
 const PROGRESS_VERSION = 1;
+function writeProgress() {
+  saveTimer = null;
+  S.prog.ver = PROGRESS_VERSION;
+  try { localStorage.setItem(LS_KEY, JSON.stringify(S.prog)); }
+  catch (e) { toast('Не удалось сохранить прогресс'); }
+  syncSoon();
+}
 function saveProgress() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    S.prog.ver = PROGRESS_VERSION;
-    try { localStorage.setItem(LS_KEY, JSON.stringify(S.prog)); }
-    catch (e) { toast('Не удалось сохранить прогресс'); }
-    syncSoon();
-  }, 250);
+  saveTimer = setTimeout(writeProgress, 250);
 }
+/* Записать отложенное сейчас. Запись ждёт четверть секунды, и если приложение
+   закрывали сразу после нажатия, последнее слово терялось: порция его помнила,
+   а прогресс — нет, и норма дня недосчитывалась на одно слово. */
+function flushProgress() {
+  if (saveTimer) { clearTimeout(saveTimer); writeProgress(); }
+}
+addEventListener('pagehide', flushProgress);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushProgress(); });
 
 function wp(id) {                                   // состояние слова
   return S.prog.w[id] || { s: 'new', r: 0, d: 0, lr: null, e: 0 };
@@ -609,6 +619,7 @@ function loadSession(kind) {
    пятом слове. Теперь ход порции сохраняется, и она продолжается с того же места. */
 function saveLearn(s) {
   if (!s || s.kind !== 'learn') return;
+  flushProgress();                         // порция и прогресс записываются вместе
   try {
     localStorage.setItem(LEARN_KEY, JSON.stringify({
       phase: s.phase, ids: s.queue.map(w => w.id), i: s.i, target: s.target,
@@ -1099,7 +1110,7 @@ ROUTES.learn = function () {
     if (S.session) return S.session.phase === 'intro' ? learnIntro() : learnDrill();
     const unfinished = pendingDrill();
     if (unfinished.length) {              // сначала доводим до конца начатое
-      S.session = { kind: 'learn', queue: [], i: 0, toTrain: unfinished, phase: 'drill',
+      S.session = { kind: 'learn', queue: [], i: 0, toTrain: unfinished.slice(), phase: 'drill',
                     drill: shuffle(unfinished), hist: [],
                     pending: new Set(unfinished.map(w => w.id)) };
       saveLearn(S.session);
@@ -1242,8 +1253,11 @@ function newWordCard(w, o) {
     if (exSlot && exSlot.firstElementChild) { exSlot.hidden = false; bindExamples(exSlot, w); }
   });
   if (S.prog.set.autoplay) setTimeout(() => speak(w.ka), 180);
+  // Второе касание двойного тапа попадало уже в следующую карточку и брало
+  // слово, которое человек даже не увидел. Первые полсекунды карточка глуха.
   let used = false;
-  const act = (a) => { if (used) return; used = true; o.onPick(a); };
+  const born = Date.now();
+  const act = (a) => { if (used || Date.now() - born < 500) return; used = true; o.onPick(a); };
   box.querySelector('[data-a=known]').onclick = () => act('known');
   box.querySelector('[data-a=learn]').onclick = () => act('learn');
   bindSwipe(box.querySelector('.word-card'), {
@@ -1679,8 +1693,9 @@ function exerciseChoice(w, mode, o) {
   else if (S.prog.set.autoplay || mode === 'listen') setTimeout(() => speak(w.ka), 200);
 
   let answered = false;
+  const born = Date.now();                        // то же против двойного касания
   const answer = (idx) => {
-    if (answered) return;
+    if (answered || Date.now() - born < 500) return;
     answered = true;
     const ok = options[idx].id === w.id;
     $$('.opt', box).forEach((b, i) => {
@@ -1886,7 +1901,8 @@ function exerciseReview(w, o) {
   // подсвечивает выбранный вариант, а засчитывает слово та же пара кнопок,
   // что и без проверки. Угадать вариант наугад и честно нажать «не вспомнил»
   // должно быть можно, поэтому отдельной кнопки «Дальше» здесь нет.
-  const grade = (ok) => { if (done) return; done = true; o.onDone(ok, false); };
+  const born = Date.now();                        // двойное касание не должно оценить следующее слово
+  const grade = (ok) => { if (done || Date.now() - born < 500) return; done = true; o.onDone(ok, false); };
   const finish = (ok) => {
     if (checked) return;
     checked = true;
