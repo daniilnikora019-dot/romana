@@ -924,6 +924,39 @@ function copyText(t) {
   });
 }
 
+/* Слово, транслитерация и перевод в карточке: долгое нажатие (на ПК — правая
+   кнопка) открывает то же меню «Скопировать». Выделять текст в карточке нельзя:
+   её смахивают, и выделение перебивало бы жест. Заглушки не копируются. */
+const WORD_COPY = '.word-card .word-ka, .word-card .word-ru, .word-card .word-tr';
+const NO_COPY = new Set(['•••', 'Послушайте слово']);
+(function bindWordCopy() {
+  let timer = null, x0 = 0, y0 = 0;
+  const target = (e) => {
+    const t = e.target.closest && e.target.closest(WORD_COPY);
+    const s = t && t.textContent.trim();
+    return s && !NO_COPY.has(s) ? t : null;
+  };
+  const open = (t) => openOptionMenu(t, t.textContent.trim());
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  document.addEventListener('pointerdown', (e) => {
+    cancel();
+    const t = target(e);
+    if (!t) return;
+    x0 = e.clientX; y0 = e.clientY;
+    timer = setTimeout(() => { timer = null; open(t); }, 450);
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (timer && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) cancel();   // это смахивание
+  });
+  document.addEventListener('pointerup', cancel);
+  document.addEventListener('pointercancel', cancel);
+  document.addEventListener('contextmenu', (e) => {
+    const t = target(e);
+    if (!t) return;
+    e.preventDefault(); cancel(); open(t);
+  });
+})();
+
 function bindOptionPlay(root, options) {
   $$('.opt-play', root).forEach(b => b.onclick = (e) => {
     e.stopPropagation();
